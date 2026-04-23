@@ -15,7 +15,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -67,4 +66,3 @@ class TaskAuditLogServiceDedicatedTest {
         assertTrue(bad.isEmpty());
     }
 }
-

@@ -3,7 +3,6 @@ package com.thesis.smart_resource_planner.service;
 import com.thesis.smart_resource_planner.exception.DuplicateResourceException;
 import com.thesis.smart_resource_planner.exception.ResourceNotFoundException;
 import com.thesis.smart_resource_planner.model.dto.TeamDTO;
-import com.thesis.smart_resource_planner.model.dto.TeamMemberDTO;
 import com.thesis.smart_resource_planner.enums.UserRole;
 import com.thesis.smart_resource_planner.model.entity.Company;
 import com.thesis.smart_resource_planner.model.entity.Team;

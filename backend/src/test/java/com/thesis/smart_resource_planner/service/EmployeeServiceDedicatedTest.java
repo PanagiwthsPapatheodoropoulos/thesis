@@ -14,7 +14,6 @@ import com.thesis.smart_resource_planner.model.entity.Employee;
 import com.thesis.smart_resource_planner.model.entity.EmployeeSkill;
 import com.thesis.smart_resource_planner.model.entity.Skill;
 import com.thesis.smart_resource_planner.model.entity.Task;
-import com.thesis.smart_resource_planner.model.entity.TaskAssignment;
 import com.thesis.smart_resource_planner.model.entity.Team;
 import com.thesis.smart_resource_planner.model.entity.User;
 import com.thesis.smart_resource_planner.repository.EmployeeRepository;
@@ -34,7 +33,6 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -47,19 +45,31 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class EmployeeServiceDedicatedTest {
 
-    @Mock private EmployeeRepository employeeRepository;
-    @Mock private com.thesis.smart_resource_planner.repository.UserRepository userRepository;
-    @Mock private com.thesis.smart_resource_planner.repository.SkillRepository skillRepository;
-    @Mock private com.thesis.smart_resource_planner.repository.EmployeeSkillRepository employeeSkillRepository;
-    @Mock private com.thesis.smart_resource_planner.repository.EmployeeAvailabilityRepository availabilityRepository;
-    @Mock private NotificationService notificationService;
-    @Mock private ModelMapper modelMapper;
-    @Mock private com.thesis.smart_resource_planner.repository.TaskAssignmentRepository taskAssignmentRepository;
-    @Mock private com.thesis.smart_resource_planner.repository.TaskRepository taskRepository;
-    @Mock private SimpMessagingTemplate messagingTemplate;
-    @Mock private WebSocketBroadcastService broadcastService;
+    @Mock
+    private EmployeeRepository employeeRepository;
+    @Mock
+    private com.thesis.smart_resource_planner.repository.UserRepository userRepository;
+    @Mock
+    private com.thesis.smart_resource_planner.repository.SkillRepository skillRepository;
+    @Mock
+    private com.thesis.smart_resource_planner.repository.EmployeeSkillRepository employeeSkillRepository;
+    @Mock
+    private com.thesis.smart_resource_planner.repository.EmployeeAvailabilityRepository availabilityRepository;
+    @Mock
+    private NotificationService notificationService;
+    @Mock
+    private ModelMapper modelMapper;
+    @Mock
+    private com.thesis.smart_resource_planner.repository.TaskAssignmentRepository taskAssignmentRepository;
+    @Mock
+    private com.thesis.smart_resource_planner.repository.TaskRepository taskRepository;
+    @Mock
+    private SimpMessagingTemplate messagingTemplate;
+    @Mock
+    private WebSocketBroadcastService broadcastService;
 
-    @InjectMocks private EmployeeService employeeService;
+    @InjectMocks
+    private EmployeeService employeeService;
 
     private UUID userId;
     private UUID employeeId;
@@ -84,7 +94,8 @@ class EmployeeServiceDedicatedTest {
     @DisplayName("updateEmployee throws when employee missing")
     void updateEmployee_notFound() {
         when(employeeRepository.findById(employeeId)).thenReturn(Optional.empty());
-        assertThrows(ResourceNotFoundException.class, () -> employeeService.updateEmployee(employeeId, new EmployeeCreateDTO()));
+        assertThrows(ResourceNotFoundException.class,
+                () -> employeeService.updateEmployee(employeeId, new EmployeeCreateDTO()));
     }
 
     @Test
@@ -106,7 +117,8 @@ class EmployeeServiceDedicatedTest {
         var pageable = PageRequest.of(0, 10);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(requester));
-        when(employeeRepository.findByCompanyIdWithFiltersNative(eq(company.getId()), any(), any(), any(), eq(pageable)))
+        when(employeeRepository.findByCompanyIdWithFiltersNative(eq(company.getId()), any(), any(), any(),
+                eq(pageable)))
                 .thenReturn(org.springframework.data.domain.Page.empty(pageable));
 
         var page = employeeService.getEmployeesPaginated(userId, pageable, null, null, null);
@@ -137,7 +149,8 @@ class EmployeeServiceDedicatedTest {
 
         var pageable = PageRequest.of(0, 10);
         when(userRepository.findById(userId)).thenReturn(Optional.of(requester));
-        when(employeeRepository.findByCompanyIdWithFiltersNative(eq(company.getId()), any(), any(), any(), eq(pageable)))
+        when(employeeRepository.findByCompanyIdWithFiltersNative(eq(company.getId()), any(), any(), any(),
+                eq(pageable)))
                 .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(employee), pageable, 1));
         when(employeeSkillRepository.findByEmployeeIdIn(anyList())).thenReturn(List.of());
         when(modelMapper.map(eq(employee), eq(EmployeeDTO.class))).thenReturn(dto);
@@ -237,7 +250,8 @@ class EmployeeServiceDedicatedTest {
     void removeSkillFromEmployee_notFound() {
         UUID skillId = UUID.randomUUID();
         when(employeeSkillRepository.findByEmployeeIdAndSkillId(employeeId, skillId)).thenReturn(Optional.empty());
-        assertThrows(ResourceNotFoundException.class, () -> employeeService.removeSkillFromEmployee(employeeId, skillId));
+        assertThrows(ResourceNotFoundException.class,
+                () -> employeeService.removeSkillFromEmployee(employeeId, skillId));
     }
 
     @Test
@@ -558,7 +572,8 @@ class EmployeeServiceDedicatedTest {
             TransactionSynchronizationManager.clearSynchronization();
         }
 
-        verify(messagingTemplate).convertAndSendToUser(eq(userId.toString()), eq("/queue/profile-update"), any(Map.class));
+        verify(messagingTemplate).convertAndSendToUser(eq(userId.toString()), eq("/queue/profile-update"),
+                any(Map.class));
         verify(messagingTemplate).convertAndSend(eq("/topic/profile-updates"), any(Map.class));
     }
 
@@ -640,7 +655,8 @@ class EmployeeServiceDedicatedTest {
         dto.setId(employeeId);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(requester));
-        when(employeeRepository.findByDepartmentAndCompanyId("Engineering", company.getId())).thenReturn(List.of(employee));
+        when(employeeRepository.findByDepartmentAndCompanyId("Engineering", company.getId()))
+                .thenReturn(List.of(employee));
         when(modelMapper.map(employee, EmployeeDTO.class)).thenReturn(dto);
 
         List<EmployeeDTO> result = employeeService.getEmployeesByDepartment("Engineering", userId);
@@ -687,4 +703,3 @@ class EmployeeServiceDedicatedTest {
         assertEquals(BigDecimal.ZERO, result.getYearsOfExperience());
     }
 }
-

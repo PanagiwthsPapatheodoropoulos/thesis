@@ -13,7 +13,6 @@ import com.thesis.smart_resource_planner.model.entity.Employee;
 import com.thesis.smart_resource_planner.model.entity.EmployeeSkill;
 import com.thesis.smart_resource_planner.model.entity.Skill;
 import com.thesis.smart_resource_planner.model.entity.Task;
-import com.thesis.smart_resource_planner.model.entity.TaskRequiredSkill;
 import com.thesis.smart_resource_planner.model.entity.Team;
 import com.thesis.smart_resource_planner.model.entity.User;
 import com.thesis.smart_resource_planner.repository.CompanyRepository;
@@ -38,23 +37,31 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class SuperAdminServiceDedicatedTest {
 
-    @Mock private CompanyRepository companyRepository;
-    @Mock private UserRepository userRepository;
-    @Mock private EmployeeRepository employeeRepository;
-    @Mock private DepartmentRepository departmentRepository;
-    @Mock private TeamRepository teamRepository;
-    @Mock private TaskRepository taskRepository;
-    @Mock private ModelMapper modelMapper;
-    @Mock private EmployeeSkillRepository employeeSkillRepository;
+    @Mock
+    private CompanyRepository companyRepository;
+    @Mock
+    private UserRepository userRepository;
+    @Mock
+    private EmployeeRepository employeeRepository;
+    @Mock
+    private DepartmentRepository departmentRepository;
+    @Mock
+    private TeamRepository teamRepository;
+    @Mock
+    private TaskRepository taskRepository;
+    @Mock
+    private ModelMapper modelMapper;
+    @Mock
+    private EmployeeSkillRepository employeeSkillRepository;
 
-    @InjectMocks private SuperAdminService superAdminService;
+    @InjectMocks
+    private SuperAdminService superAdminService;
 
     private UUID companyId;
     private Company company;
@@ -176,7 +183,8 @@ class SuperAdminServiceDedicatedTest {
         dep.setName("Engineering");
         dep.setDescription("desc");
         when(departmentRepository.findByCompanyId(companyId)).thenReturn(List.of(dep));
-        when(employeeRepository.countEmployeesByDepartmentAndCompanyIdForDashboard("Engineering", companyId)).thenReturn(4L);
+        when(employeeRepository.countEmployeesByDepartmentAndCompanyIdForDashboard("Engineering", companyId))
+                .thenReturn(4L);
 
         List<DepartmentDTO> result = superAdminService.getDepartmentsByCompany(companyId);
         assertEquals(1, result.size());

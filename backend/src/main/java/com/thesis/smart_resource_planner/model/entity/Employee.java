@@ -1,6 +1,5 @@
 package com.thesis.smart_resource_planner.model.entity;
 
-import com.thesis.smart_resource_planner.model.entity.EmployeeSkill;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;

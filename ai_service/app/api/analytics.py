@@ -174,7 +174,7 @@ async def get_productivity_analytics(
     token = authorization.replace("Bearer ", "")
     
     # Attempt to retrieve from cache to ensure low latency for frequent dashboard views
-    cache_key = f"analytics:{request.time_period_days}d"
+    cache_key = f"analytics:v2:{request.time_period_days}d"
     
     if not request.bust_cache:
         cached = await redis_client.get(x_company_id, cache_key)

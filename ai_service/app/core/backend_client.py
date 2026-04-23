@@ -273,7 +273,7 @@ class BackendClient:
         """Retrieves and normalizes skills for a specific employee.
 
         This method handles multiple backend response formats to ensure
-        a consistent mapping of skill names to proficiency levels.
+        a consistent mapping of skill IDs to proficiency levels.
 
         Args:
             employee_id: The employee ID.
@@ -281,7 +281,7 @@ class BackendClient:
             company_id: The ID of the company.
 
         Returns:
-            Dict[str, int]: Mapping of {skill_name: proficiency_level}.
+            Dict[str, int]: Mapping of {skill_id: proficiency_level}.
         """
         headers = {
             "Authorization": f"Bearer {token}",
@@ -289,7 +289,7 @@ class BackendClient:
         }
         
         try:
-            # Request detailed format which includes mapped skill names
+            # Request detailed format so we can prefer skill IDs for stable joins.
             data = await self._request(
                 "GET",
                 f"/employees/{employee_id}/skills",
@@ -300,14 +300,14 @@ class BackendClient:
                         
             # Normalize complex dictionary responses
             if isinstance(data, dict):
-                # Try to get skillsByName first (preferred)
-                if 'skillsByName' in data:
-                    skills = data['skillsByName']
-                    return skills
-                
-                # Try skillsById as fallback
-                elif 'skillsById' in data:
+                # Prefer IDs because task required skills are also IDs.
+                if 'skillsById' in data:
                     skills = data['skillsById']
+                    return skills
+
+                # Fall back to name-based map only if IDs are unavailable.
+                elif 'skillsByName' in data:
+                    skills = data['skillsByName']
                     return skills
                 
                 # If direct dict of skills
@@ -318,8 +318,11 @@ class BackendClient:
                 elif 'skills' in data and isinstance(data['skills'], list):
                     skill_dict = {}
                     for skill in data['skills']:
-                        if isinstance(skill, dict) and 'skillName' in skill and 'proficiencyLevel' in skill:
-                            skill_dict[skill['skillName']] = skill['proficiencyLevel']
+                        if isinstance(skill, dict) and 'proficiencyLevel' in skill:
+                            if 'skillId' in skill and skill['skillId'] is not None:
+                                skill_dict[str(skill['skillId'])] = skill['proficiencyLevel']
+                            elif 'skillName' in skill and skill['skillName'] is not None:
+                                skill_dict[str(skill['skillName'])] = skill['proficiencyLevel']
                     return skill_dict
             
             # Normalize list-based responses
@@ -327,10 +330,13 @@ class BackendClient:
                 skill_dict = {}
                 for skill in data:
                     if isinstance(skill, dict):
-                        if 'skillName' in skill and 'proficiencyLevel' in skill:
-                            skill_dict[skill['skillName']] = skill['proficiencyLevel']
+                        if 'proficiencyLevel' in skill:
+                            if 'skillId' in skill and skill['skillId'] is not None:
+                                skill_dict[str(skill['skillId'])] = skill['proficiencyLevel']
+                            elif 'skillName' in skill and skill['skillName'] is not None:
+                                skill_dict[str(skill['skillName'])] = skill['proficiencyLevel']
                         elif 'name' in skill and 'proficiency' in skill:
-                            skill_dict[skill['name']] = skill['proficiency']
+                            skill_dict[str(skill['name'])] = skill['proficiency']
                 return skill_dict
             
             return {}
@@ -352,7 +358,7 @@ class BackendClient:
             company_id: Company ID.
 
         Returns:
-            Dict[str, Dict[str, int]]: Nested mapping of {employee_id: {skill_name: proficiency}}.
+            Dict[str, Dict[str, int]]: Nested mapping of {employee_id: {skill_id: proficiency}}.
         """
         if not employee_ids:
             return {}
@@ -365,7 +371,7 @@ class BackendClient:
             
             params = {
                 "employeeIds": employee_ids,
-                "format": "simple"
+                "format": "id"
             }
             
             # Execute batch request for performance optimization

@@ -25,7 +25,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -144,7 +143,8 @@ class AuthServiceLegacyDedicatedTest {
         when(userRepository.existsByEmail("new@example.com")).thenReturn(false);
         when(passwordEncoder.encode("password123")).thenReturn("encodedPassword");
         when(userRepository.save(any())).thenReturn(testUser);
-        when(companyService.getDefaultCompany()).thenReturn(new com.thesis.smart_resource_planner.model.entity.Company());
+        when(companyService.getDefaultCompany())
+                .thenReturn(new com.thesis.smart_resource_planner.model.entity.Company());
         when(modelMapper.map(any(User.class), eq(UserDTO.class))).thenReturn(new UserDTO());
 
         UserDTO created = authService.register(registrationDTO);

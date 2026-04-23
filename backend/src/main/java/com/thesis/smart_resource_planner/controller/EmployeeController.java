@@ -386,8 +386,9 @@ public class EmployeeController {
         try {
             UUID companyId = currentUser.getCompanyId();
             Map<String, Map<String, Integer>> result = new HashMap<>();
+            boolean returnSkillIds = "id".equalsIgnoreCase(format) || "ids".equalsIgnoreCase(format);
 
-            log.info("Batch fetching skills for {} employees", employeeIds.size());
+            log.info("Batch fetching skills for {} employees using format '{}'", employeeIds.size(), format);
 
             // Convert string IDs to UUIDs
             List<UUID> employeeUUIDs = employeeIds.stream()
@@ -426,11 +427,13 @@ public class EmployeeController {
                     // Get this employee's skills
                     List<EmployeeSkill> employeeSkills = skillsByEmployee.getOrDefault(empId, List.of());
 
-                    // Convert to {skillName: proficiency} map
+                        // Convert to {skillName: proficiency} or {skillId: proficiency} map.
                     Map<String, Integer> skillMap = employeeSkills.stream()
                             .filter(es -> es.getSkill() != null)
                             .collect(Collectors.toMap(
-                                    es -> es.getSkill().getName(),
+                                es -> returnSkillIds
+                                    ? es.getSkill().getId().toString()
+                                    : es.getSkill().getName(),
                                     EmployeeSkill::getProficiencyLevel,
                                     (existing, replacement) -> existing // Keep first if duplicate
                             ));

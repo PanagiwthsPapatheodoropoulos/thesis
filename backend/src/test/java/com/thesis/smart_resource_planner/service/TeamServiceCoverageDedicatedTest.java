@@ -23,20 +23,25 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("TeamService Coverage - Gap Tests")
 class TeamServiceCoverageDedicatedTest {
 
-    @Mock private TeamRepository teamRepository;
-    @Mock private UserRepository userRepository;
-    @Mock private NotificationService notificationService;
-    @Mock private ModelMapper modelMapper;
-    @Mock private ChatMessageRepository chatMessageRepository;
+    @Mock
+    private TeamRepository teamRepository;
+    @Mock
+    private UserRepository userRepository;
+    @Mock
+    private NotificationService notificationService;
+    @Mock
+    private ModelMapper modelMapper;
+    @Mock
+    private ChatMessageRepository chatMessageRepository;
 
-    @InjectMocks private TeamService teamService;
+    @InjectMocks
+    private TeamService teamService;
 
     private UUID userId;
     private UUID teamId;
@@ -141,8 +146,8 @@ class TeamServiceCoverageDedicatedTest {
     @DisplayName("getAllTeams maps projection rows correctly")
     void getAllTeams_mapsProjectionRows() {
         LocalDateTime now = LocalDateTime.now();
-        Object[] row1 = new Object[]{teamId, "Team1", "Desc1", null, now, now, 5L};
-        Object[] row2 = new Object[]{UUID.randomUUID(), "Team2", "Desc2", null, now, now, 3L};
+        Object[] row1 = new Object[] { teamId, "Team1", "Desc1", null, now, now, 5L };
+        Object[] row2 = new Object[] { UUID.randomUUID(), "Team2", "Desc2", null, now, now, 3L };
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(admin));
         when(teamRepository.findTeamsWithMemberCountByCompanyId(company.getId())).thenReturn(List.of(row1, row2));

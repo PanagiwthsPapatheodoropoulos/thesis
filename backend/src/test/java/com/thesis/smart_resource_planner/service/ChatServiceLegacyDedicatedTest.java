@@ -2,7 +2,6 @@ package com.thesis.smart_resource_planner.service;
 
 import com.thesis.smart_resource_planner.enums.UserRole;
 import com.thesis.smart_resource_planner.exception.BadRequestException;
-import com.thesis.smart_resource_planner.exception.ResourceNotFoundException;
 import com.thesis.smart_resource_planner.model.dto.ChatMessageCreateDTO;
 import com.thesis.smart_resource_planner.model.dto.ChatMessageDTO;
 import com.thesis.smart_resource_planner.model.dto.UserDTO;
