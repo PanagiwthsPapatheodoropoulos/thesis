@@ -27,10 +27,10 @@ const AIInsightsPage = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const { connected, ready, subscribe } = useWebSocket();
   const [refreshing, setRefreshing] = useState<boolean>(false);
-  const [lastUpdated, setLastUpdated] = useState<any>(null);
-  const [error, setError] = useState<any>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const { darkMode } = useTheme();
-  const [analytics, setAnalytics] = useState<any>(null);
+  const [analytics, setAnalytics] = useState<Record<string, any> | null>(null);
   const [anomalies, setAnomalies] = useState({
     tasks: [],
     employees: [],

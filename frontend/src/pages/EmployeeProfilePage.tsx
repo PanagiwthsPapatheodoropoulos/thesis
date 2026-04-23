@@ -10,7 +10,7 @@ import { employeesAPI } from '../utils/api';
 import { useTheme } from '../contexts/ThemeContext';
 import SkillRadarChart from '../components/SkillRadarChart';
 import EmployeeProductivityChart from '../components/EmployeeProductivityChart';
-import type { Employee, EmployeeSkill, Task, TaskAssignment } from '../types';
+import type { EmployeeSkill, Task, TaskAssignment } from '../types';
 
 
 /**

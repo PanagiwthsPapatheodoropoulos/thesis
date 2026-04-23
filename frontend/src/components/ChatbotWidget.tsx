@@ -504,7 +504,7 @@ const ChatbotWidget: React.FC = () => {
                   <input
                     type="text"
                     value={input}
-                    onChange={(e: React.ChangeEvent<any>) => setInput(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setInput(e.target.value)}
                     onKeyPress={handleKeyPress}
                     placeholder={isListening ? "🎤 Listening... (click mic to stop)" : "Ask me anything..."}
                     disabled={isTyping || connectionStatus !== 'connected'}

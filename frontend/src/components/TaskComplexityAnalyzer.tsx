@@ -9,7 +9,7 @@
 import React, { useState, useEffect } from 'react';
 import { Brain, Loader, TrendingUp, AlertCircle } from 'lucide-react';
 import { aiAPI } from '../utils/api';
-import type { TaskComplexityAnalyzerProps, ComplexityAnalysis } from '../types';
+import type { TaskComplexityAnalyzerProps } from '../types';
 
 /**
  * Component that analyses task complexity using the AI service.
@@ -25,7 +25,7 @@ import type { TaskComplexityAnalyzerProps, ComplexityAnalysis } from '../types';
 const TaskComplexityAnalyzer: React.FC<TaskComplexityAnalyzerProps> = ({ title, description, onComplexityDetected, darkMode = false }) => {
   const [analyzing, setAnalyzing] = useState<boolean>(false);
   const [analysis, setAnalysis] = useState<any>(null);
-  const [error, setError] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
   const [hasAnalyzed, setHasAnalyzed] = useState<boolean>(false);
 
 

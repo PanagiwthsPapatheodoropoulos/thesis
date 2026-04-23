@@ -28,7 +28,7 @@ const SkillsMultiSelect: React.FC<SkillsMultiSelectProps> = ({ selectedSkills = 
   const [showDropdown, setShowDropdown] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [creating, setCreating] = useState<boolean>(false);
-  const [deletedCustomSkills, setDeletedCustomSkills] = useState<any[]>([]);
+  const [deletedCustomSkills, setDeletedCustomSkills] = useState<string[]>([]);
   
   // Prevent infinite fetching with ref
   const hasFetchedSkills = useRef(false);
@@ -282,7 +282,7 @@ const SkillsMultiSelect: React.FC<SkillsMultiSelectProps> = ({ selectedSkills = 
           type="text"
           placeholder="Type to search or create skills... (Press Enter to add)"
           value={searchTerm}
-          onChange={(e: React.ChangeEvent<any>) => {
+          onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
             setSearchTerm(e.target.value);
             setShowDropdown(true);
           }}

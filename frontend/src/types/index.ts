@@ -16,7 +16,7 @@ export type TaskStatus = 'PENDING' | 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DON
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 
 /** Assignment status matching backend TaskAssignmentStatus. */
-export type AssignmentStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'COMPLETED';
+export type AssignmentStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'COMPLETED' | 'IN_PROGRESS';
 
 /** How a task was assigned matching backend AssignedByType. */
 export type AssignedByType = 'MANUAL' | 'AI' | 'SYSTEM';
@@ -76,7 +76,7 @@ export interface Skill {
 
 /** Represents an employee's proficiency in a specific skill. */
 export interface EmployeeSkill {
-  id: string;
+  id?: string;
   skillId?: string;
   skillName?: string;
   name?: string;
@@ -204,14 +204,18 @@ export interface Team {
   tasks?: Task[];
   companyId?: string;
   createdAt?: string;
+  memberCount?: number;
   updatedAt?: string;
 }
 
 /** A department within the company. */
 export interface Department {
+  id?: string;
   name: string;
   description?: string;
   company?: string;
+  employeeCount?: number;
+  employees?: Employee[];
 }
 
 /** A notification delivered to a user. */
@@ -243,6 +247,7 @@ export interface ChatMessage {
   isRead?: boolean;
   messageType?: MessageType;
   createdAt: string;
+  senderProfileImageUrl?: string;
   readAt?: string;
 }
 

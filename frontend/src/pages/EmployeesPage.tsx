@@ -17,7 +17,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useWebSocket, EVENT_TYPES } from '../contexts/WebSocketProvider';
 import SkillsInput from '../components/SkillsInput';
 import Pagination from '../components/Pagination';
-import type { Employee, PaginatedResponse, EmployeeFilters } from '../types';
+import type { PaginatedResponse, EmployeeFilters } from '../types';
 
 /**
  * Employee directory page with real-time updates via WebSocket.
@@ -32,7 +32,7 @@ const EmployeesPage = () => {
 
   // Data State
   const [employees, setEmployees] = useState<any[]>([]);
-  const [departments, setDepartments] = useState<any[]>([]);
+  const [departments, setDepartments] = useState<string[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
@@ -870,7 +870,7 @@ const EmployeesPage = () => {
                   min="1"
                   max="168"
                   value={editFormData.maxWeeklyHours}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditFormData({ ...editFormData, maxWeeklyHours: e.target.value })}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditFormData({ ...editFormData, maxWeeklyHours: e.target.value as any })}
                   className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${darkMode
                       ? 'bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400'
                       : 'bg-white border-gray-300 text-gray-900'

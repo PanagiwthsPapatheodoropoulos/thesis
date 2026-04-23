@@ -8,7 +8,7 @@
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { TrendingUp, Calendar, Activity, Award, Target } from 'lucide-react';
-import type { EmployeeProductivityChartProps, ProductivityData } from '../types';
+import type { EmployeeProductivityChartProps } from '../types';
 
 /**
  * Component that fetches and displays productivity metrics for a specific employee.

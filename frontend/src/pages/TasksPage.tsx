@@ -19,7 +19,7 @@ import SkillsMultiSelect from '../components/SkillsMultiSelect';
 import TaskComplexityAnalyzer from '../components/TaskComplexityAnalyzer';
 import TaskSkillsExtractor from '../components/TaskSkillsExtractor';
 import Pagination from '../components/Pagination';
-import type { Task, Employee, PaginatedResponse, TaskFilters } from '../types';
+import type { PaginatedResponse, TaskFilters } from '../types';
 
 /**
  * Task management page supporting CRUD operations, filtering, sorting, and AI-assisted assignment.
@@ -70,7 +70,7 @@ const TasksPage = () => {
   const [showAISuggestionsInModal, setShowAISuggestionsInModal] = useState<boolean>(false);
   const [aiSuggestionsForNewTask, setAiSuggestionsForNewTask] = useState<any[]>([]);
   const [loadingAISuggestions, setLoadingAISuggestions] = useState<boolean>(false);
-  const [predictedHours, setPredictedHours] = useState<any>(null);
+  const [predictedHours, setPredictedHours] = useState<number | null>(null);
   const [selectedTeamEmployees, setSelectedTeamEmployees] = useState<any[]>([]);
 
   // Form Data

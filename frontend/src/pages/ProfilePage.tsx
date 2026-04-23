@@ -39,7 +39,7 @@ const ProfilePage = () => {
     department: '',
     profileImageUrl: ''
   });
-  const [imagePreview, setImagePreview] = useState<any>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   useEffect(() => {
     fetchProfile();
@@ -301,7 +301,7 @@ const ProfilePage = () => {
               <input
                 type="email"
                 value={formData.email}
-                onChange={(e: React.ChangeEvent<any>) => setFormData({ ...formData, email: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setFormData({ ...formData, email: e.target.value })}
                 className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${
                   darkMode
                     ? 'bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400'
@@ -331,7 +331,7 @@ const ProfilePage = () => {
               <input
                 type="text"
                 value={formData.username}
-                onChange={(e: React.ChangeEvent<any>) => setFormData({ ...formData, username: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setFormData({ ...formData, username: e.target.value })}
                 className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${
                   darkMode
                     ? 'bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400'
@@ -350,7 +350,7 @@ const ProfilePage = () => {
               <input
                 type="text"
                 value={formData.firstName}
-                onChange={(e: React.ChangeEvent<any>) => setFormData({ ...formData, firstName: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setFormData({ ...formData, firstName: e.target.value })}
                 className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${
                   darkMode
                     ? 'bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400'
@@ -370,7 +370,7 @@ const ProfilePage = () => {
               <input
                 type="text"
                 value={formData.lastName}
-                onChange={(e: React.ChangeEvent<any>) => setFormData({ ...formData, lastName: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setFormData({ ...formData, lastName: e.target.value })}
                 className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${
                   darkMode
                     ? 'bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400'
@@ -392,7 +392,7 @@ const ProfilePage = () => {
                 type="text"
                 value={formData.position}
                 disabled
-                onChange={(e: React.ChangeEvent<any>) => setFormData({ ...formData, position: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setFormData({ ...formData, position: e.target.value })}
                 className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${
                   darkMode
                     ? 'bg-gray-900 border-gray-700 text-gray-400 cursor-not-allowed'
@@ -414,7 +414,7 @@ const ProfilePage = () => {
                 type="text"
                 value={formData.department}
                 disabled
-                onChange={(e: React.ChangeEvent<any>) => setFormData({ ...formData, department: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setFormData({ ...formData, department: e.target.value })}
                 className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${
                   darkMode
                     ? 'bg-gray-900 border-gray-700 text-gray-400 cursor-not-allowed'

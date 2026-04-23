@@ -534,7 +534,7 @@ const TeamsPage = () => {
                   type="text"
                   required
                   value={formData.name}
-                  onChange={(e: React.ChangeEvent<any>) => setFormData({ ...formData, name: e.target.value })}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setFormData({ ...formData, name: e.target.value })}
                   className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${
                     darkMode ? 'bg-gray-800 border-gray-700 text-gray-100' : 'bg-white border-gray-300 text-gray-900'
                   }`}
@@ -544,7 +544,7 @@ const TeamsPage = () => {
                 <label className="block text-sm font-medium mb-1">Description</label>
                 <textarea
                   value={formData.description}
-                  onChange={(e: React.ChangeEvent<any>) => setFormData({ ...formData, description: e.target.value })}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setFormData({ ...formData, description: e.target.value })}
                   className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${
                     darkMode ? 'bg-gray-800 border-gray-700 text-gray-100' : 'bg-white border-gray-300 text-gray-900'
                   }`}

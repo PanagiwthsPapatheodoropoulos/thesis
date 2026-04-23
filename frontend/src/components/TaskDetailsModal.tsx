@@ -23,7 +23,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 // FIX: Removed EVENT_TYPES from import to break circular dependency
 import { useWebSocket } from '../contexts/WebSocketProvider';
-import type { TaskDetailsModalProps, Task, TaskComment, TaskAssignment, TaskAuditLog, TaskTimeEntry, Employee } from '../types';
+import type { TaskDetailsModalProps, Task, TaskAssignment, Employee } from '../types';
 
 // FIX: Define event types locally to avoid the ReferenceError
 const TASK_EVENTS = {
@@ -577,7 +577,7 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClo
                                     }`}>
                                         <textarea
                                             value={newComment}
-                                            onChange={(e: React.ChangeEvent<any>) => setNewComment(e.target.value)}
+                                            onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setNewComment(e.target.value)}
                                             placeholder="Add a comment..."
                                             className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none resize-none ${
                                                 darkMode
@@ -693,7 +693,7 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClo
                                                         step="0.25"
                                                         min="0.25"
                                                         value={newTimeEntry.hoursSpent}
-                                                        onChange={(e: React.ChangeEvent<any>) =>
+                                                        onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
                                                             setNewTimeEntry({
                                                                 ...newTimeEntry,
                                                                 hoursSpent: e.target.value,
@@ -717,7 +717,7 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClo
                                                     <input
                                                         type="date"
                                                         value={newTimeEntry.workDate}
-                                                        onChange={(e: React.ChangeEvent<any>) =>
+                                                        onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
                                                             setNewTimeEntry({
                                                                 ...newTimeEntry,
                                                                 workDate: e.target.value,
@@ -740,7 +740,7 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClo
                                                 </label>
                                                 <textarea
                                                     value={newTimeEntry.description}
-                                                    onChange={(e: React.ChangeEvent<any>) =>
+                                                    onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
                                                         setNewTimeEntry({
                                                             ...newTimeEntry,
                                                             description: e.target.value,

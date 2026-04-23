@@ -27,7 +27,6 @@ import type { Company, User } from '../types';
  */
 const SuperAdminDashboardPage = () => {
   const [companies, setCompanies] = useState<any[]>([]);
-  const { darkMode } = useTheme();
   const [selectedCompany, setSelectedCompany] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -419,7 +418,7 @@ const SuperAdminDashboardPage = () => {
               type="text"
               placeholder="Search companies by name or join code..."
               value={searchTerm}
-              onChange={(e: React.ChangeEvent<any>) => setSearchTerm(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setSearchTerm(e.target.value)}
               className="w-full bg-transparent text-white placeholder-slate-500 py-3 focus:outline-none"
             />
           </div>
@@ -663,7 +662,7 @@ const DataTable: React.FC<DataTableProps> = ({ title, icon: Icon, data, columns,
   );
 };
 
-const formatCellValue = (value: unknown, column: string): React.ReactNode => {
+const formatCellValue = (value: any, column: string): React.ReactNode => {
   if (value === null || value === undefined) return <span className="text-slate-600">-</span>;
   
   if (column === 'dueDate' || column === 'createdAt') {

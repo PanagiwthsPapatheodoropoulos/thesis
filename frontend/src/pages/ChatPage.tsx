@@ -23,7 +23,7 @@ const ChatPage = () => {
   const { darkMode } = useTheme();
   const { connected, ready, subscribe } = useWebSocket();
   
-  const [userProfileImage, setUserProfileImage] = useState<any>(null);
+  const [userProfileImage, setUserProfileImage] = useState<string | null>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [contacts, setContacts] = useState<any[]>([]);
   const [teams, setTeams] = useState<any[]>([]);

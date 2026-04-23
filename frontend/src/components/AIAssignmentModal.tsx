@@ -11,7 +11,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Brain, TrendingUp, Award, AlertCircle, Loader } from 'lucide-react';
 import { aiAPI, assignmentsAPI } from '../utils/api';
 import { useTheme } from '../contexts/ThemeContext';
-import type { AIAssignmentModalProps, Task, Employee, AISuggestion } from '../types';
+import type { AIAssignmentModalProps, Task, Employee } from '../types';
 
 /**
  * Modal that fetches and displays AI-generated employee assignment suggestions.
@@ -27,7 +27,7 @@ import type { AIAssignmentModalProps, Task, Employee, AISuggestion } from '../ty
 const AIAssignmentModal: React.FC<AIAssignmentModalProps> = ({ task, isOpen, onClose, onAssign }) => {
   const [loading, setLoading] = useState<boolean>(false);
   const [suggestions, setSuggestions] = useState<any[]>([]);
-  const [error, setError] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
   const { darkMode } = useTheme();
 
   /**

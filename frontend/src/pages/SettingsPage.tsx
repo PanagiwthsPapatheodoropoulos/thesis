@@ -397,7 +397,7 @@ const SettingsPage = () => {
                 <input
                   type="text"
                   value={profileData.username}
-                  onChange={(e: React.ChangeEvent<any>) => setProfileData({ ...profileData, username: e.target.value })}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setProfileData({ ...profileData, username: e.target.value })}
                   className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${
                     darkMode 
                       ? 'bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400'
@@ -415,7 +415,7 @@ const SettingsPage = () => {
                 <input
                   type="email"
                   value={profileData.email}
-                  onChange={(e: React.ChangeEvent<any>) => setProfileData({ ...profileData, email: e.target.value })}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setProfileData({ ...profileData, email: e.target.value })}
                   className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${
                     darkMode 
                       ? 'bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400'
@@ -535,7 +535,7 @@ const SettingsPage = () => {
                         type="checkbox"
                         className="sr-only peer"
                         checked={notificationPrefs[item.key]}
-                        onChange={(e: React.ChangeEvent<any>) => setNotificationPrefs({
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNotificationPrefs({
                           ...notificationPrefs,
                           [item.key]: e.target.checked
                         })}
@@ -573,7 +573,7 @@ const SettingsPage = () => {
                   <input
                     type="password"
                     value={passwordData.currentPassword}
-                    onChange={(e: React.ChangeEvent<any>) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
                     className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${
                       darkMode 
                         ? 'bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400'
@@ -591,7 +591,7 @@ const SettingsPage = () => {
                   <input
                     type="password"
                     value={passwordData.newPassword}
-                    onChange={(e: React.ChangeEvent<any>) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
                     className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${
                       darkMode 
                         ? 'bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400'
@@ -609,7 +609,7 @@ const SettingsPage = () => {
                   <input
                     type="password"
                     value={passwordData.confirmPassword}
-                    onChange={(e: React.ChangeEvent<any>) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
                     className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${
                       darkMode 
                         ? 'bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400'
@@ -725,7 +725,7 @@ const SettingsPage = () => {
                   </label>
                   <select 
                     value={preferences.language}
-                    onChange={(e: React.ChangeEvent<any>) => setPreferences({...preferences, language: e.target.value})}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setPreferences({...preferences, language: e.target.value})}
                     className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${
                       darkMode 
                         ? 'bg-gray-700 border-gray-600 text-gray-100'
@@ -744,7 +744,7 @@ const SettingsPage = () => {
                   </label>
                   <select 
                     value={preferences.timezone}
-                    onChange={(e: React.ChangeEvent<any>) => setPreferences({...preferences, timezone: e.target.value})}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setPreferences({...preferences, timezone: e.target.value})}
                     className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${
                       darkMode 
                         ? 'bg-gray-700 border-gray-600 text-gray-100'

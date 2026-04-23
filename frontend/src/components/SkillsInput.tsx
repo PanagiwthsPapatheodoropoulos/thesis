@@ -8,7 +8,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Award, Loader } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
-import type { SkillsInputProps, EmployeeSkill, Skill } from '../types';
+import type { SkillsInputProps, Skill } from '../types';
 
 /**
  * Component for managing an employee's skills list and proficiency levels.
@@ -393,7 +393,7 @@ const SkillsInput: React.FC<SkillsInputProps> = ({ employeeId, initialSkills = [
                   <input
                     type="text"
                     value={inputValue}
-                    onChange={(e: React.ChangeEvent<any>) => setInputValue(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setInputValue(e.target.value)}
                     onKeyDown={handleKeyDown}
                     placeholder="e.g., Java, Leadership"
                     className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${
@@ -414,7 +414,7 @@ const SkillsInput: React.FC<SkillsInputProps> = ({ employeeId, initialSkills = [
                   </label>
                   <select
                     value={category}
-                    onChange={(e: React.ChangeEvent<any>) => setCategory(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setCategory(e.target.value)}
                     className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${
                       darkMode
                         ? 'bg-gray-800 border-gray-600 text-gray-100'
@@ -446,7 +446,7 @@ const SkillsInput: React.FC<SkillsInputProps> = ({ employeeId, initialSkills = [
                     min="1"
                     max="5"
                     value={proficiency}
-                    onChange={(e: React.ChangeEvent<any>) => setProficiency(parseInt(e.target.value))}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setProficiency(parseInt(e.target.value))}
                     className={`flex-1 ${
                       darkMode ? 'accent-indigo-500' : ''
                     }`}

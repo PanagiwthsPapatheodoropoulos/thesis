@@ -505,7 +505,7 @@ const WorkloadPage = () => {
             <label className="block text-sm font-medium mb-1">Sort By</label>
             <select
               value={sortBy}
-              onChange={(e: React.ChangeEvent<any>) => setSortBy(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setSortBy(e.target.value)}
               className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${
                 darkMode ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300'
               }`}
@@ -521,7 +521,7 @@ const WorkloadPage = () => {
             <label className="block text-sm font-medium mb-1">Filter by Status</label>
             <select
               value={filterStatus}
-              onChange={(e: React.ChangeEvent<any>) => setFilterStatus(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setFilterStatus(e.target.value)}
               className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${
                 darkMode ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300'
               }`}

@@ -8,7 +8,7 @@ import { Building2, Users, Search, ChevronDown, ChevronUp, Plus, X, Trash2, User
 import { departmentsAPI } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import type { Department, Employee } from '../types';
+import type { Employee } from '../types';
 
 /**
  * DepartmentsPage Component
@@ -24,7 +24,7 @@ const DepartmentsPage = () => {
   const [departments, setDepartments] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>('');
-  const [expandedDept, setExpandedDept] = useState<any>(null);
+  const [expandedDept, setExpandedDept] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
   const [formData, setFormData] = useState({ name: '', description: '' });
 

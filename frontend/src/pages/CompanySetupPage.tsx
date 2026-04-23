@@ -17,7 +17,7 @@ import { authAPI } from '../utils/api';
  */
 const CompanySetupPage = () => {
   const navigate = useNavigate();
-  const [mode, setMode] = useState<any>(null);
+  const [mode, setMode] = useState<'create' | 'join' | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
   

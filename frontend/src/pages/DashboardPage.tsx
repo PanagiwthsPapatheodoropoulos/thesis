@@ -33,8 +33,8 @@ const DashboardPage = () => {
     totalEmployees: 0,
     pendingRequests: 0
   });
-  const [error, setError] = useState<any>(null);
-  const [priorityBreakdown, setPriorityBreakdown] = useState<any[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [priorityBreakdown, setPriorityBreakdown] = useState<{ name: string; value: number; color?: string }[]>([]);
   const isEmployee = user?.role === 'EMPLOYEE';
   const isManager = user?.role === 'MANAGER';
   const isAdmin = user?.role === 'ADMIN';
