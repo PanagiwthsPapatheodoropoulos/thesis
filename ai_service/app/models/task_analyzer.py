@@ -394,7 +394,7 @@ class TaskComplexityAnalyzer:
             # Score increases with complex similarity, decreases with simple similarity
             score = (complex_sim - simple_sim) / 2.0
             return max(0.0, min(score, 1.0))
-        except:
+        except Exception:
             return 0.0
 
     def _linguistic_complexity(self, text: str) -> float:
@@ -423,7 +423,7 @@ class TaskComplexityAnalyzer:
             entity_complexity = min(len(entities) / 5, 1.0)
             
             return (sentence_complexity * 0.4 + depth_complexity * 0.4 + entity_complexity * 0.2)
-        except:
+        except Exception:
             return 0.0
 
     def _detect_scope(self, text: str) -> float:

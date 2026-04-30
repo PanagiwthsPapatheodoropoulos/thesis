@@ -336,7 +336,7 @@ class TrainingScheduler:
         try:
             # Placeholder - implement backend endpoint
             return []
-        except:
+        except Exception:
             return []
             
     async def _count_new_completed_tasks(self, company_id: str) -> int:
@@ -361,7 +361,7 @@ class TrainingScheduler:
             # Placeholder implementation
             return 0
             
-        except:
+        except Exception:
             return 0
             
     async def _get_service_token(self, company_id: str) -> str:

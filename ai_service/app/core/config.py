@@ -3,7 +3,6 @@ ai_service/app/core/config.py - Application Settings and Environment Configurati
 All service-wide settings are defined here using pydantic-settings, which reads
 values from environment variables with fallback defaults for local development.
 """
-import os
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
@@ -31,27 +30,33 @@ class Settings(BaseSettings):
     JUNIOR_EXPERIENCE_YEARS: int = 3
     SENIOR_EXPERIENCE_YEARS: int = 10
     MIN_SKILL_COVERAGE: float = 0.6
-    # Backend connection
-    BACKEND_API_URL: str = os.getenv("BACKEND_API_URL")
+    
+    # Backend connection - pydantic-settings reads from env vars automatically
+    BACKEND_API_URL: str = "http://backend:8080/api"
     
     # Redis
-    REDIS_HOST: str = os.getenv("REDIS_HOST")
-    REDIS_PORT: int = int(os.getenv("REDIS_PORT"))
-    REDIS_DB: int = int(os.getenv("REDIS_DB"))
-    REDIS_PASSWORD: str = os.getenv("SPRING_REDIS_PASSWORD")
+    REDIS_HOST: str = "redis_cache"
+    REDIS_PORT: int = 6379
+    REDIS_DB: int = 0
+    SPRING_REDIS_PASSWORD: str = ""
     
-
-    CACHE_TTL_SHORT: int = int(os.getenv("CACHE_TTL_SHORT"))     # 5 minutes
-    CACHE_TTL_MEDIUM: int = int(os.getenv("CACHE_TTL_MEDIUM"))  # 1 hour
-    CACHE_TTL_LONG: int = int(os.getenv("CACHE_TTL_LONG"))     # 24 hours
+    @property
+    def REDIS_PASSWORD(self) -> str:
+        """Alias for SPRING_REDIS_PASSWORD for backward compatibility."""
+        return self.SPRING_REDIS_PASSWORD
+    
+    # Cache TTLs (seconds)
+    CACHE_TTL_SHORT: int = 300       # 5 minutes
+    CACHE_TTL_MEDIUM: int = 3600     # 1 hour
+    CACHE_TTL_LONG: int = 86400      # 24 hours
     
     # Model settings
-    MODEL_CACHE_DIR: str = os.getenv("MODEL_CACHE_DIR")
+    MODEL_CACHE_DIR: str = "/app/models"
     
     # Genetic Algorithm
-    GENETIC_ALGORITHM_POPULATION: int = int(os.getenv("GENETIC_ALGORITHM_POPULATION"))
-    GENETIC_ALGORITHM_GENERATIONS: int = int(os.getenv("GENETIC_ALGORITHM_GENERATIONS"))
-    GENETIC_ALGORITHM_MUTATION_RATE: float = float(os.getenv("GENETIC_ALGORITHM_MUTATION_RATE"))
+    GENETIC_ALGORITHM_POPULATION: int = 50
+    GENETIC_ALGORITHM_GENERATIONS: int = 100
+    GENETIC_ALGORITHM_MUTATION_RATE: float = 0.2
 
     class Config:
         env_file = ".env"

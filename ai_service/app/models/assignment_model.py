@@ -300,10 +300,10 @@ class TaskAssignmentModel:
         
         # Priority modifier (critical tasks need fresh people)
         if priority == 'CRITICAL':
-            if workload_pct > 70:
+            if workload_pct > 85:
+                priority_penalty = 0.7  # Bad choice - severely loaded
+            elif workload_pct > 70:
                 priority_penalty = 0.9  # Not ideal
-            elif workload_pct > 85:
-                priority_penalty = 0.7  # Bad choice
             else:
                 priority_penalty = 1.0
         else:
@@ -479,7 +479,7 @@ class TaskAssignmentModel:
         priority: str,
         experience_years: float,
         complexity: float
-    ) -> Tuple[float]:
+    ) -> float:
         """
         Scores how well an employee's experience level aligns with the task's urgency.
         Critical tasks benefit from senior staff; low-priority tasks can serve as growth

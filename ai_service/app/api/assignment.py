@@ -151,9 +151,15 @@ async def suggest_assignment(
         workload_map = {w['employeeId']: w for w in workload_data}
         
         # Step 4: Data Enrichment - Build a multidimensional profile for each candidate
+        # Batch-fetch all employee skills in a single request (avoids N+1 queries)
+        employee_ids = [emp['id'] for emp in employees]
+        all_skills_batch = await backend_client.get_all_employee_skills_batch(
+            employee_ids, token, x_company_id
+        )
+        
         enriched_employees = []
         for emp in employees:
-            skills = await backend_client.get_employee_skills(emp['id'], token, x_company_id)
+            skills = all_skills_batch.get(emp['id'], {})
             workload_info = workload_map.get(emp['id'], {})
             workload_pct = workload_info.get('workloadPercentage', 0)
 
@@ -280,15 +286,19 @@ async def bulk_optimize_assignments(
         if not target_tasks:
             raise HTTPException(status_code=404, detail="None of the requested task IDs exist")
         
-        # Step 2: Resource Inventory
+        # Step 2: Resource Inventory - Batch-fetch all skills (avoids N+1 queries)
+        employee_ids = [emp['id'] for emp in employees]
+        all_skills_batch = await backend_client.get_all_employee_skills_batch(
+            employee_ids, token, x_company_id
+        )
+        
         enriched_employees = []
         for emp in employees:
-            skills = await backend_client.get_employee_skills(emp['id'], token)
             enriched_employees.append({
                 'id': emp['id'],
                 'first_name': emp['firstName'],
                 'last_name': emp['lastName'],
-                'skills': skills,
+                'skills': all_skills_batch.get(emp['id'], {}),
                 'max_weekly_hours': emp.get('maxWeeklyHours', 40),
             })
         

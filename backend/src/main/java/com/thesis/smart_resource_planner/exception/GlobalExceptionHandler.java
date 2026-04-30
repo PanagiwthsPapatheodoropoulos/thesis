@@ -208,6 +208,7 @@ public class GlobalExceptionHandler {
         @ExceptionHandler(Exception.class)
         public ResponseEntity<ErrorResponse> handleGlobalException(
                         Exception ex, WebRequest request) {
+                log.error("Unhandled exception for {}: {}", request.getDescription(false), ex.getMessage(), ex);
 
                 ErrorResponse errorResponse = ErrorResponse.builder()
                                 .timestamp(LocalDateTime.now())

@@ -10,6 +10,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -93,6 +96,7 @@ public class TaskService {
      * @param createdByUserId UUID of the admin or manager creating the task
      * @return the saved {@link TaskDTO}
      */
+    @CacheEvict(value = "employeeWorkload", allEntries = true)
     public TaskDTO createTask(TaskCreateDTO createDTO, UUID createdByUserId) {
         try {
             User createdBy = userRepository.findById(createdByUserId)
@@ -648,6 +652,10 @@ public class TaskService {
      * @param updatedByUserId UUID of the user making the change
      * @return the updated {@link TaskDTO}
      */
+    @Caching(evict = {
+            @CacheEvict(value = "taskById", key = "#taskId"),
+            @CacheEvict(value = "employeeWorkload", allEntries = true)
+    })
     public TaskDTO updateTaskStatus(UUID taskId, TaskStatus newStatus, UUID updatedByUserId) {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new ResourceNotFoundException("Task not found"));
@@ -1230,6 +1238,7 @@ public class TaskService {
      *                                                                               found
      */
     @Transactional(readOnly = true)
+    @Cacheable(value = "taskById", key = "#id")
     public TaskDTO getTaskById(UUID id) {
 
         Task task = taskRepository.findById(id)
@@ -1308,6 +1317,10 @@ public class TaskService {
      * @param updatedByUserId UUID of the user performing the update
      * @return the updated {@link TaskDTO}
      */
+    @Caching(evict = {
+            @CacheEvict(value = "taskById", key = "#id"),
+            @CacheEvict(value = "employeeWorkload", allEntries = true)
+    })
     public TaskDTO updateTask(UUID id, TaskUpdateDTO updateDTO, UUID updatedByUserId) {
         Task task = taskRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Task not found"));
@@ -1380,6 +1393,10 @@ public class TaskService {
      *                                                                               not
      *                                                                               found
      */
+    @Caching(evict = {
+            @CacheEvict(value = "taskById", key = "#id"),
+            @CacheEvict(value = "employeeWorkload", allEntries = true)
+    })
     public void deleteTask(UUID id) {
         if (!taskRepository.existsById(id)) {
             throw new ResourceNotFoundException("Task not found");

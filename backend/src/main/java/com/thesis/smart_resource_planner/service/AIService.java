@@ -89,6 +89,7 @@ public class AIService {
             return List.of();
 
         } catch (Exception e) {
+            log.error("Failed to get assignment suggestions for task {}: {}", taskId, e.getMessage());
             return List.of();
         }
     }
@@ -129,6 +130,7 @@ public class AIService {
             return response.getBody();
 
         } catch (Exception e) {
+            log.error("Failed to predict task duration for task {}: {}", taskId, e.getMessage());
             return null;
         }
     }
@@ -165,6 +167,7 @@ public class AIService {
             return response.getBody();
 
         } catch (Exception e) {
+            log.error("Failed to detect anomalies for {} {}: {}", entityType, entityId, e.getMessage());
             return null;
         }
     }
@@ -211,6 +214,7 @@ public class AIService {
             return body;
 
         } catch (Exception e) {
+            log.error("Failed to get productivity analytics: {}", e.getMessage());
             return null;
         }
     }
@@ -254,6 +258,7 @@ public class AIService {
             return List.of();
 
         } catch (Exception e) {
+            log.error("Failed to bulk optimize assignments: {}", e.getMessage());
             return List.of();
         }
     }
@@ -286,6 +291,7 @@ public class AIService {
             return response.getBody();
 
         } catch (Exception e) {
+            log.error("Failed to get model performance: {}", e.getMessage());
             return null;
         }
     }
@@ -326,6 +332,7 @@ public class AIService {
             return response.getBody();
 
         } catch (Exception e) {
+            log.error("Failed to trigger retraining: {}", e.getMessage());
             return null;
         }
     }

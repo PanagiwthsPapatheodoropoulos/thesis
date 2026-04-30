@@ -8,11 +8,16 @@ import com.thesis.smart_resource_planner.repository.SkillRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Service for skill management operations.
@@ -48,6 +53,7 @@ public class SkillService {
      *                                                                                already
      *                                                                                exists
      */
+    @CacheEvict(value = "skills", allEntries = true)
     public SkillDTO createSkill(SkillDTO skillDTO) {
         if (skillRepository.existsByName(skillDTO.getName())) {
             throw new DuplicateResourceException("Skill already exists");
@@ -69,6 +75,7 @@ public class SkillService {
      *                                                                               found
      */
     @Transactional(readOnly = true)
+    @Cacheable(value = "skill", key = "#id")
     public SkillDTO getSkillById(UUID id) {
         Skill skill = skillRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Skill not found"));
@@ -85,6 +92,7 @@ public class SkillService {
      *                                                                               found
      */
     @Transactional(readOnly = true)
+    @Cacheable(value = "skill", key = "#name")
     public SkillDTO getSkillByName(String name) {
         Skill skill = skillRepository.findByName(name)
                 .orElseThrow(() -> new ResourceNotFoundException("Skill not found"));
@@ -97,10 +105,11 @@ public class SkillService {
      * @return list of all {@link SkillDTO} objects
      */
     @Transactional(readOnly = true)
+    @Cacheable(value = "skills")
     public List<SkillDTO> getAllSkills() {
         return skillRepository.findAll().stream()
                 .map(skill -> modelMapper.map(skill, SkillDTO.class))
-                .toList();
+                .collect(Collectors.toCollection(ArrayList::new));
     }
 
     /**
@@ -158,6 +167,10 @@ public class SkillService {
      *                                                                                existing
      *                                                                                skill
      */
+    @Caching(evict = {
+            @CacheEvict(value = "skills", allEntries = true),
+            @CacheEvict(value = "skill", key = "#id")
+    })
     public SkillDTO updateSkill(UUID id, SkillDTO skillDTO) {
         Skill skill = skillRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Skill not found"));
@@ -190,6 +203,10 @@ public class SkillService {
      *                                                                               not
      *                                                                               found
      */
+    @Caching(evict = {
+            @CacheEvict(value = "skills", allEntries = true),
+            @CacheEvict(value = "skill", key = "#id")
+    })
     public void deleteSkill(UUID id) {
 
         if (!skillRepository.existsById(id)) {

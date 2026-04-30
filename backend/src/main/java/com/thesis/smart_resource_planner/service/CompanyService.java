@@ -9,6 +9,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import org.modelmapper.ModelMapper;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -187,6 +189,7 @@ public class CompanyService {
      *                                                                               exist
      */
     @Transactional(readOnly = true)
+    @Cacheable(value = "company", key = "#userId")
     public CompanyDTO getCompanyById(UUID userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
@@ -233,6 +236,7 @@ public class CompanyService {
      *                                                                               not
      *                                                                               exist
      */
+    @CacheEvict(value = "company", allEntries = true)
     public String regenerateJoinCode(UUID companyId) {
         Company company = companyRepository.findById(companyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Company not found"));
@@ -269,6 +273,7 @@ public class CompanyService {
      *                                                                               phase
      */
     @Transactional
+    @CacheEvict(value = {"company", "employees", "employee", "employeeByUser", "employeeSkills", "employeeWorkload", "departments", "departmentNames"}, allEntries = true)
     public void deleteCompany(UUID companyId) {
         Company company = companyRepository.findById(companyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Company not found"));

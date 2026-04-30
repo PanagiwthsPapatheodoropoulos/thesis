@@ -9,6 +9,9 @@ import jakarta.validation.ValidationException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -66,6 +69,10 @@ public class EmployeeService {
      *                                                already exists for the user
      */
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "employees", allEntries = true),
+            @CacheEvict(value = "employeeWorkload", allEntries = true)
+    })
     public EmployeeDTO createEmployee(EmployeeCreateDTO createDTO) {
         // Check if employee profile EXISTS (including orphaned records)
         Optional<Employee> existingEmployee = employeeRepository.findByUserId(createDTO.getUserId());
@@ -171,6 +178,7 @@ public class EmployeeService {
      *                                                                               exist
      */
     @Transactional(readOnly = true)
+    @Cacheable(value = "employeeSkills", key = "#employeeId")
     public List<EmployeeSkillDTO> getEmployeeSkills(UUID employeeId) {
         // Verify employee exists first
         if (!employeeRepository.existsById(employeeId)) {
@@ -203,7 +211,7 @@ public class EmployeeService {
 
                     return dto;
                 })
-                .toList();
+                .collect(Collectors.toCollection(ArrayList::new));
 
         return result;
     }
@@ -219,6 +227,7 @@ public class EmployeeService {
      *         and a workload percentage relative to each employee's max weekly
      *         hours
      */
+    @Cacheable(value = "employeeWorkload", key = "#userId")
     public List<EmployeeWorkloadDTO> getEmployeeWorkload(UUID userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
@@ -332,7 +341,7 @@ public class EmployeeService {
                     .availableHours(availableHours)
                     .status(status)
                     .build();
-        }).toList();
+                }).collect(Collectors.toCollection(ArrayList::new));
     }
 
     /**
@@ -345,6 +354,7 @@ public class EmployeeService {
      *                                                                               found
      */
     @Transactional(readOnly = true)
+    @Cacheable(value = "employee", key = "#id")
     public EmployeeDTO getEmployeeById(UUID id) {
         // Use eager-loading query
         Employee employee = employeeRepository.findByIdWithSkills(id)
@@ -402,6 +412,7 @@ public class EmployeeService {
      *                                                                               user
      */
     @Transactional(readOnly = true)
+    @Cacheable(value = "employeeByUser", key = "#userId")
     public EmployeeDTO getEmployeeByUserId(UUID userId) {
         // Use eager-loading query
         Employee employee = employeeRepository.findByUserIdWithSkills(userId)
@@ -455,6 +466,7 @@ public class EmployeeService {
      * @return list of {@link EmployeeDTO} objects (EMPLOYEE role only)
      */
     @Transactional(readOnly = true)
+    @Cacheable(value = "employees", key = "#userId")
     public List<EmployeeDTO> getAllEmployees(UUID userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
@@ -505,7 +517,7 @@ public class EmployeeService {
 
                     return dto;
                 })
-                .toList();
+                .collect(Collectors.toCollection(ArrayList::new));
     }
 
     /**
@@ -648,6 +660,11 @@ public class EmployeeService {
      *                                                                               exist
      */
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "employeeSkills", key = "#employeeId"),
+            @CacheEvict(value = "employee", key = "#employeeId"),
+            @CacheEvict(value = "employees", allEntries = true)
+    })
     public EmployeeSkillDTO addSkillToEmployee(UUID employeeId, EmployeeSkillDTO skillDTO) {
         Employee employee = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Employee not found"));
@@ -717,6 +734,11 @@ public class EmployeeService {
      *                                                                               the
      *                                                                               employee
      */
+    @Caching(evict = {
+            @CacheEvict(value = "employeeSkills", key = "#employeeId"),
+            @CacheEvict(value = "employee", key = "#employeeId"),
+            @CacheEvict(value = "employees", allEntries = true)
+    })
     public void removeSkillFromEmployee(UUID employeeId, UUID skillId) {
         EmployeeSkill employeeSkill = employeeSkillRepository
                 .findByEmployeeIdAndSkillId(employeeId, skillId)
@@ -813,6 +835,12 @@ public class EmployeeService {
      *                                                                               not
      *                                                                               exist
      */
+    @Caching(evict = {
+            @CacheEvict(value = "employee", key = "#id"),
+            @CacheEvict(value = "employeeByUser", allEntries = true),
+            @CacheEvict(value = "employees", allEntries = true),
+            @CacheEvict(value = "employeeWorkload", allEntries = true)
+    })
     public EmployeeDTO updateEmployee(UUID id, EmployeeCreateDTO updateDTO) {
 
         Employee employee = employeeRepository.findById(id)
@@ -891,6 +919,13 @@ public class EmployeeService {
      *                                                                               not
      *                                                                               found
      */
+    @Caching(evict = {
+            @CacheEvict(value = "employee", key = "#id"),
+            @CacheEvict(value = "employeeByUser", allEntries = true),
+            @CacheEvict(value = "employeeSkills", key = "#id"),
+            @CacheEvict(value = "employees", allEntries = true),
+            @CacheEvict(value = "employeeWorkload", allEntries = true)
+    })
     public void deleteEmployee(UUID id) {
         if (!employeeRepository.existsById(id)) {
             throw new ResourceNotFoundException("Employee not found");

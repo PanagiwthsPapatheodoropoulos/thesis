@@ -14,10 +14,14 @@ import com.thesis.smart_resource_planner.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Service for department management operations.
@@ -65,7 +69,11 @@ public class DepartmentService {
          *                                                                                the
          *                                                                                company
          */
-        public DepartmentDTO createDepartment(DepartmentCreateDTO createDTO, UUID userId) {
+        @Caching(evict = {
+            @CacheEvict(value = "departments", allEntries = true),
+            @CacheEvict(value = "departmentNames", allEntries = true)
+    })
+    public DepartmentDTO createDepartment(DepartmentCreateDTO createDTO, UUID userId) {
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
@@ -95,6 +103,7 @@ public class DepartmentService {
          * @param userId UUID of the requesting user
          * @return list of {@link DepartmentDTO} objects with employees populated
          */
+        @Cacheable(value = "departments", key = "#userId")
         public List<DepartmentDTO> getAllDepartments(UUID userId) {
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
@@ -103,7 +112,7 @@ public class DepartmentService {
                 return departments.stream()
                                 // Pass userId to the helper
                                 .map(department -> mapToDTOWithEmployees(department, userId))
-                                .toList();
+                                .collect(Collectors.toCollection(ArrayList::new));
         }
 
         /**
@@ -157,6 +166,7 @@ public class DepartmentService {
          * @return sorted list of department name strings
          */
         @Transactional(readOnly = true)
+        @Cacheable(value = "departmentNames", key = "#userId")
         public List<String> getDepartmentNames(UUID userId) {
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
@@ -167,7 +177,7 @@ public class DepartmentService {
                 return departments.stream()
                                 .map(Department::getName)
                                 .sorted()
-                                .toList();
+                                .collect(Collectors.toCollection(ArrayList::new));
         }
 
         /**
@@ -189,6 +199,10 @@ public class DepartmentService {
          *                                                                               contains
          *                                                                               employees
          */
+        @Caching(evict = {
+                @CacheEvict(value = "departments", allEntries = true),
+                @CacheEvict(value = "departmentNames", allEntries = true)
+        })
         public void deleteDepartment(String name, UUID userId) {
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));

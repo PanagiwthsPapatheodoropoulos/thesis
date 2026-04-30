@@ -611,7 +611,7 @@ class BackendClient:
                 try:
                     # Note: Assumes individual get_task_required_skills exists (logic inferred)
                     result[task_id] = []
-                except:
+                except Exception:
                     result[task_id] = []
             return result
     
