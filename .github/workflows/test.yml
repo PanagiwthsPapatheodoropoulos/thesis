@@ -12,31 +12,6 @@ jobs:
     name: Backend Tests
     runs-on: ubuntu-latest
 
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_DB: thesis_db_test
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: testpassword
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -57,13 +32,8 @@ jobs:
       - name: Run backend tests
         working-directory: backend
         env:
-          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/thesis_db_test
-          SPRING_DATASOURCE_USERNAME: postgres
-          SPRING_DATASOURCE_PASSWORD: testpassword
-          REDIS_HOST: localhost
-          REDIS_PORT: 6379
-          SPRING_REDIS_PASSWORD: ""
-          JWT_SECRET: test-jwt-secret-for-ci-only-not-production-use
+          # Using H2 (in-memory) defined in application-test.properties
+          JWT_SECRET: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
           JWT_EXPIRATION_MS: 86400000
           ADMIN_KEY_SECRET: test-admin-key
           MANAGER_KEY_SECRET: test-manager-key
