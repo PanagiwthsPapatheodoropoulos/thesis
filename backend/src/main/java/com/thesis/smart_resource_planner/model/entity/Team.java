@@ -32,9 +32,11 @@ public class Team {
     private String description;
 
     @OneToMany(mappedBy = "team", cascade = CascadeType.ALL)
+    @Builder.Default
     private List<User> users = new ArrayList<>();
 
     @OneToMany(mappedBy = "team", cascade = CascadeType.ALL)
+    @Builder.Default
     private List<Task> tasks = new ArrayList<>();
 
     @ManyToOne(fetch = FetchType.LAZY)

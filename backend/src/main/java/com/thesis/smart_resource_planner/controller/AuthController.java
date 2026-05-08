@@ -1,6 +1,7 @@
 package com.thesis.smart_resource_planner.controller;
 
 import com.thesis.smart_resource_planner.exception.ResourceNotFoundException;
+import com.thesis.smart_resource_planner.exception.UnauthorizedException;
 import com.thesis.smart_resource_planner.model.dto.*;
 import com.thesis.smart_resource_planner.model.entity.User;
 import com.thesis.smart_resource_planner.repository.UserRepository;
@@ -15,6 +16,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 /**
  * Controller for handling authentication and registration operations.
@@ -74,23 +77,52 @@ public class AuthController {
     }
 
     /**
-     * Refreshes the authentication token for the currently authenticated user.
+     * Refreshes the authentication token using either the current session
+     * (authenticated user) or a refresh token sent in the request body.
+     * Issues both a new access token and a new refresh token (rotation).
      *
-     * @param currentUser The currently authenticated user principal.
-     * @return ResponseEntity containing the new authentication token.
+     * @param currentUser   The currently authenticated user principal (may be null
+     *                      if using refresh token).
+     * @param body          Optional request body containing a "refreshToken" field.
+     * @return ResponseEntity containing the new access and refresh tokens.
      */
     @PostMapping("/refresh")
-    public ResponseEntity<LoginResponseDTO> refreshToken(@AuthenticationPrincipal UserPrincipal currentUser) {
+    public ResponseEntity<LoginResponseDTO> refreshToken(
+            @AuthenticationPrincipal UserPrincipal currentUser,
+            @RequestBody(required = false) Map<String, String> body) {
+
+        String username = null;
+
+        // Strategy 1: Use refresh token from request body
+        if (body != null && body.containsKey("refreshToken")) {
+            String refreshToken = body.get("refreshToken");
+            if (tokenProvider.validateToken(refreshToken)) {
+                username = tokenProvider.getUsernameFromToken(refreshToken);
+            } else {
+                throw new UnauthorizedException("Invalid or expired refresh token");
+            }
+        }
+        // Strategy 2: Use the currently authenticated user (existing behavior)
+        else if (currentUser != null) {
+            username = currentUser.getUsername();
+        }
+
+        if (username == null) {
+            throw new UnauthorizedException("No valid authentication provided for token refresh");
+        }
+
         // Fetch current user from DB
-        User user = userRepository.findById(currentUser.getId())
+        User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        // Generate new JWT
-        String newToken = tokenProvider.generateTokenFromUsername(user.getUsername());
+        // Generate new access + refresh token pair (rotation)
+        String newAccessToken = tokenProvider.generateTokenFromUsername(user.getUsername());
+        String newRefreshToken = tokenProvider.generateRefreshToken(user.getUsername());
         UserDTO userDTO = modelMapper.map(user, UserDTO.class);
 
         return ResponseEntity.ok(LoginResponseDTO.builder()
-                .token(newToken)
+                .token(newAccessToken)
+                .refreshToken(newRefreshToken)
                 .tokenType("Bearer")
                 .user(userDTO)
                 .build());

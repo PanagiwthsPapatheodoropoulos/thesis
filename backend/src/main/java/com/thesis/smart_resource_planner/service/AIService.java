@@ -4,6 +4,7 @@ package com.thesis.smart_resource_planner.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import com.thesis.smart_resource_planner.exception.UnauthorizedException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
@@ -98,7 +99,8 @@ public class AIService {
      * Predict task duration
      */
     public Map<String, Object> predictTaskDuration(
-            UUID taskId,
+            String taskId,
+            String description,
             String priority,
             Double complexityScore,
             List<String> requiredSkillIds,
@@ -112,8 +114,13 @@ public class AIService {
             headers.set("Authorization", "Bearer " + token);
             headers.set("X-Company-Id", companyId.toString());
 
-            Map<String, Object> request = new HashMap<>();
-            request.put("task_id", taskId.toString());
+                String safeTaskId = (taskId != null && !taskId.isBlank())
+                    ? taskId
+                    : UUID.randomUUID().toString();
+
+                Map<String, Object> request = new HashMap<>();
+                request.put("task_id", safeTaskId);
+            request.put("description", description);
             request.put("priority", priority);
             request.put("complexity_score", complexityScore != null ? complexityScore : 0.5);
             request.put("required_skill_ids", requiredSkillIds != null ? requiredSkillIds : List.of());
@@ -340,6 +347,7 @@ public class AIService {
     /**
      * Extract JWT token from current security context
      */
+    @SuppressWarnings("unused")
     private String getJwtToken() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
@@ -347,6 +355,6 @@ public class AIService {
             return authentication.getCredentials().toString();
         }
 
-        throw new RuntimeException("No authentication token found");
+        throw new UnauthorizedException("No authentication token found");
     }
 }

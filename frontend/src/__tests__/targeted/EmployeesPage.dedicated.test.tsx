@@ -84,7 +84,12 @@ describe("EmployeesPage dedicated", () => {
     );
     await waitFor(() => expect(mocks.getAllPaginated).toHaveBeenCalled());
     fireEvent.click(screen.getByTitle("Edit employee"));
-    await waitFor(() => expect(window.alert).toHaveBeenCalledWith(expect.stringContaining("Error loading employee data")));
+    await waitFor(() =>
+      expect((globalThis as any).__showToast).toHaveBeenCalledWith(
+        expect.stringContaining("Error loading employee data"),
+        "error",
+      ),
+    );
   });
 
   it("shows alert on delete error path", async () => {
@@ -96,7 +101,12 @@ describe("EmployeesPage dedicated", () => {
     await waitFor(() => expect(mocks.getAllPaginated).toHaveBeenCalled());
     fireEvent.click(screen.getByText("Remove"));
     fireEvent.click(screen.getByText(/Yes, Remove Employee/i));
-    await waitFor(() => expect(window.alert).toHaveBeenCalledWith(expect.stringContaining("Error deleting employee")));
+    await waitFor(() =>
+      expect((globalThis as any).__showToast).toHaveBeenCalledWith(
+        expect.stringContaining("Error deleting employee"),
+        "error",
+      ),
+    );
   });
 
   it("creates employee through selected skills branch", async () => {
@@ -179,7 +189,10 @@ describe("EmployeesPage dedicated", () => {
     fireEvent.click(screen.getByText("Save Changes"));
 
     await waitFor(() => expect(mocks.createNotification).toHaveBeenCalled());
-    expect(window.alert).toHaveBeenCalledWith(expect.stringContaining("role updated"));
+    expect((globalThis as any).__showToast).toHaveBeenCalledWith(
+      expect.stringContaining("role updated"),
+      "success",
+    );
     expect(global.fetch).toHaveBeenCalled();
   });
 });

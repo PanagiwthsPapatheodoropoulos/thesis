@@ -151,8 +151,7 @@ export const WebSocketProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
 
-    const WS_BASE_URL = import.meta.env.VITE_API_URL;
-    const socket = new SockJS(`${WS_BASE_URL}/ws`);
+    const socket = new SockJS(`/ws`);
     
     const stompClient = new Client({
       webSocketFactory: () => socket as WebSocket,

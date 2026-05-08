@@ -7,6 +7,7 @@ import com.thesis.smart_resource_planner.model.dto.LoginRequestDTO;
 import com.thesis.smart_resource_planner.model.dto.LoginResponseDTO;
 import com.thesis.smart_resource_planner.model.dto.UserDTO;
 import com.thesis.smart_resource_planner.model.dto.UserRegistrationDTO;
+import com.thesis.smart_resource_planner.model.entity.Company;
 import com.thesis.smart_resource_planner.model.entity.User;
 import com.thesis.smart_resource_planner.repository.UserRepository;
 import com.thesis.smart_resource_planner.repository.EmployeeRepository;
@@ -144,7 +145,7 @@ class AuthServiceLegacyDedicatedTest {
         when(passwordEncoder.encode("password123")).thenReturn("encodedPassword");
         when(userRepository.save(any())).thenReturn(testUser);
         when(companyService.getDefaultCompany())
-                .thenReturn(new com.thesis.smart_resource_planner.model.entity.Company());
+            .thenReturn(new Company());
         when(modelMapper.map(any(User.class), eq(UserDTO.class))).thenReturn(new UserDTO());
 
         UserDTO created = authService.register(registrationDTO);

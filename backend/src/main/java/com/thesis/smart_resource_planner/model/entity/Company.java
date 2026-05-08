@@ -33,10 +33,8 @@ public class Company {
     @Column(length = 255)
     private String domain;
 
-    @Column(name = "subscription_tier", length = 50)
-    private String subscriptionTier = "BASIC";
-
     @Column(name = "is_active", nullable = false)
+    @Builder.Default
     private Boolean isActive = true;
 
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -46,15 +44,19 @@ public class Company {
     private LocalDateTime updatedAt;
 
     @OneToMany(mappedBy = "company", cascade = CascadeType.ALL)
+    @Builder.Default
     private List<User> users = new ArrayList<>();
 
     @OneToMany(mappedBy = "company", cascade = CascadeType.ALL)
+    @Builder.Default
     private List<Department> departments = new ArrayList<>();
 
     @OneToMany(mappedBy = "company", cascade = CascadeType.ALL)
+    @Builder.Default
     private List<Team> teams = new ArrayList<>();
 
     @OneToMany(mappedBy = "company", cascade = CascadeType.ALL)
+    @Builder.Default
     private List<Task> tasks = new ArrayList<>();
 
     @PrePersist

@@ -14,6 +14,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.client.RestTemplate;
+import org.mockito.ArgumentMatchers;
 
 import java.util.Map;
 import java.util.List;
@@ -24,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-class AIControllerTest {
+class AIControllerDedicatedTest {
 
     private AIService aiService;
     private RestTemplate restTemplate;
@@ -65,7 +66,7 @@ class AIControllerTest {
     @Test
     void chatbotHealth_error_returns503() {
         when(restTemplate.exchange(contains("/chatbot/health"), eq(HttpMethod.GET), any(HttpEntity.class),
-                any(ParameterizedTypeReference.class)))
+                ArgumentMatchers.<ParameterizedTypeReference<Map<String, Object>>>any()))
                 .thenThrow(new RuntimeException("down"));
         var res = controller.chatbotHealth(principal, "Bearer t");
         assertEquals(503, res.getStatusCode().value());
@@ -88,10 +89,10 @@ class AIControllerTest {
 
     @Test
     void predictTaskDuration_serviceError_returnsOkWithError() {
-        when(aiService.predictTaskDuration(any(UUID.class), anyString(), anyDouble(), anyList(), anyString(), any(UUID.class)))
+        when(aiService.predictTaskDuration(anyString(), anyString(), anyString(), anyDouble(), anyList(), anyString(), any(UUID.class)))
                 .thenThrow(new RuntimeException("prediction down"));
         var res = controller.predictTaskDuration(
-                Map.of("taskId", "not-a-uuid", "priority", "HIGH", "requiredSkillIds", List.of("java")),
+                Map.of("taskId", "not-a-uuid", "description", "test-desc", "priority", "HIGH", "requiredSkillIds", List.of("java")),
                 principal,
                 "Bearer t");
         assertEquals(200, res.getStatusCode().value());
@@ -130,7 +131,7 @@ class AIControllerTest {
     @Test
     void extractSkills_error_returns500() {
         when(restTemplate.exchange(contains("/skills/extract"), eq(HttpMethod.POST), any(HttpEntity.class),
-                any(ParameterizedTypeReference.class)))
+                ArgumentMatchers.<ParameterizedTypeReference<Map<String, Object>>>any()))
                 .thenThrow(new RuntimeException("extract failed"));
         var res = controller.extractSkills(Map.of("text", "java spring"), principal, "Bearer t");
         assertEquals(500, res.getStatusCode().value());
@@ -140,7 +141,7 @@ class AIControllerTest {
     @Test
     void pullModel_error_returns500() {
         when(restTemplate.exchange(contains("/chatbot/pull-model"), eq(HttpMethod.POST), any(HttpEntity.class),
-                any(ParameterizedTypeReference.class)))
+                ArgumentMatchers.<ParameterizedTypeReference<Map<String, Object>>>any()))
                 .thenThrow(new RuntimeException("pull failed"));
         var res = controller.pullModel("phi3", principal, "Bearer t");
         assertEquals(500, res.getStatusCode().value());
@@ -177,7 +178,7 @@ class AIControllerTest {
     @Test
     void analyzeTaskComplexity_success_returnsForwardedBody() {
         when(restTemplate.exchange(contains("/task-analysis/analyze"), eq(HttpMethod.POST), any(HttpEntity.class),
-                any(ParameterizedTypeReference.class)))
+                ArgumentMatchers.<ParameterizedTypeReference<Map<String, Object>>>any()))
                 .thenReturn(ResponseEntity.ok(Map.of("complexity_score", 0.77)));
         var res = controller.analyzeTaskComplexity(Map.of("title", "task"), principal, "Bearer t");
         assertEquals(200, res.getStatusCode().value());
@@ -187,7 +188,7 @@ class AIControllerTest {
     @Test
     void chatWithAI_success_injectsRoleContext() {
         when(restTemplate.exchange(contains("/chatbot/query"), eq(HttpMethod.POST), any(HttpEntity.class),
-                any(ParameterizedTypeReference.class)))
+                ArgumentMatchers.<ParameterizedTypeReference<Map<String, Object>>>any()))
                 .thenReturn(ResponseEntity.ok(Map.of("response", "ok")));
         var res = controller.chatWithAI(Map.of("query", "hello"), principal, "Bearer t");
         assertEquals(200, res.getStatusCode().value());
@@ -197,7 +198,7 @@ class AIControllerTest {
     @Test
     void chatbotHealth_success_returnsBody() {
         when(restTemplate.exchange(contains("/chatbot/health"), eq(HttpMethod.GET), any(HttpEntity.class),
-                any(ParameterizedTypeReference.class)))
+                ArgumentMatchers.<ParameterizedTypeReference<Map<String, Object>>>any()))
                 .thenReturn(ResponseEntity.ok(Map.of("status", "healthy")));
         var res = controller.chatbotHealth(principal, "Bearer t");
         assertEquals(200, res.getStatusCode().value());
@@ -207,7 +208,7 @@ class AIControllerTest {
     @Test
     void pullModel_success_returnsBody() {
         when(restTemplate.exchange(contains("/chatbot/pull-model"), eq(HttpMethod.POST), any(HttpEntity.class),
-                any(ParameterizedTypeReference.class)))
+                ArgumentMatchers.<ParameterizedTypeReference<Map<String, Object>>>any()))
                 .thenReturn(ResponseEntity.ok(Map.of("status", "pulled")));
         var res = controller.pullModel("phi3", principal, "Bearer t");
         assertEquals(200, res.getStatusCode().value());
@@ -246,11 +247,11 @@ class AIControllerTest {
 
     @Test
     void predictTaskDuration_success_nullPayloadHandled() {
-        when(aiService.predictTaskDuration(any(UUID.class), anyString(), anyDouble(), anyList(), anyString(), any(UUID.class)))
+        when(aiService.predictTaskDuration(anyString(), anyString(), anyString(), anyDouble(), anyList(), anyString(), any(UUID.class)))
                 .thenReturn(Map.of("predicted_hours", 5.5));
 
         var res = controller.predictTaskDuration(
-                Map.of("taskId", UUID.randomUUID().toString(), "priority", "LOW", "requiredSkillIds", List.of()),
+                Map.of("taskId", UUID.randomUUID().toString(), "description", "test-desc", "priority", "LOW", "requiredSkillIds", List.of()),
                 principal,
                 "Bearer t");
         assertEquals(200, res.getStatusCode().value());
@@ -266,4 +267,3 @@ class AIControllerTest {
         assertTrue(String.valueOf(res.getBody().get("error")).contains("anomaly down"));
     }
 }
-

@@ -19,6 +19,7 @@ import SkillsMultiSelect from '../components/SkillsMultiSelect';
 import TaskComplexityAnalyzer from '../components/TaskComplexityAnalyzer';
 import TaskSkillsExtractor from '../components/TaskSkillsExtractor';
 import Pagination from '../components/Pagination';
+import { useToast } from '../components/Toast';
 import type { PaginatedResponse, TaskFilters } from '../types';
 
 /**
@@ -30,11 +31,13 @@ import type { PaginatedResponse, TaskFilters } from '../types';
 const TasksPage = () => {
   const { user } = useAuth();
   const { darkMode } = useTheme();
+  const { showToast } = useToast();
   
   // -- State: Data & Pagination --
   const [tasks, setTasks] = useState<any[]>([]);
   const [pendingRequestsCount, setPendingRequestsCount] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   
   // Pagination State
   const [currentPage, setCurrentPage] = useState<number>(0);
@@ -105,6 +108,7 @@ const TasksPage = () => {
   const fetchData = async () => {
     try {
       if (!loading) setLoading(true);
+      setErrorMessage(null);
 
       // 1. Fetch Paginated Tasks
       const response = await tasksAPI.getAllPaginated(
@@ -160,6 +164,7 @@ const TasksPage = () => {
 
     } catch (error: any) {
       console.error('Error fetching data:', error);
+      setErrorMessage('Unable to load tasks. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -253,7 +258,7 @@ const TasksPage = () => {
    */
   const fetchAISuggestionsForNewTask = async () => {
     if (!formData.title || !formData.priority) {
-      alert('Please enter task title and priority first');
+      showToast('Please enter task title and priority first', 'warning');
       return;
     }
 
@@ -286,7 +291,7 @@ const TasksPage = () => {
       }));
       setAiSuggestionsForNewTask(mappedSuggestions);
     } catch (error: any) {
-      alert('Failed to get AI suggestions: ' + error.message);
+      showToast('Failed to get AI suggestions: ' + error.message, 'error');
       setAiSuggestionsForNewTask([]);
     } finally {
       setLoadingAISuggestions(false);
@@ -387,7 +392,7 @@ const TasksPage = () => {
       });
       fetchData();
     } catch (error: any) {
-      alert('Error: ' + error.message);
+      showToast('Error: ' + error.message, 'error');
     }
   };
 
@@ -413,7 +418,7 @@ const TasksPage = () => {
       }
       fetchData();
     } catch (error: any) {
-      alert('Error: ' + error.message);
+      showToast('Error: ' + error.message, 'error');
     }
   };
 
@@ -427,7 +432,7 @@ const TasksPage = () => {
         await tasksAPI.delete(id);
         fetchData();
       } catch (error: any) {
-        alert('Error: ' + error.message);
+        showToast('Error: ' + error.message, 'error');
       }
     }
   };
@@ -437,7 +442,7 @@ const TasksPage = () => {
       await tasksAPI.approveTask(taskId);
       fetchData();
     } catch (error: any) {
-      alert('Error: ' + error.message);
+      showToast('Error: ' + error.message, 'error');
     }
   };
 
@@ -445,10 +450,10 @@ const TasksPage = () => {
     if (window.confirm('Reject this task request?')) {
       try {
         await tasksAPI.rejectTask(taskId);
-        alert(' Task request rejected');
+        showToast('Task request rejected', 'success');
         fetchData();
       } catch (error: any) {
-        alert('Error: ' + error.message);
+        showToast('Error: ' + error.message, 'error');
       }
     }
   };
@@ -457,12 +462,12 @@ const TasksPage = () => {
     if (selectedTasks.length === 0) return;
     try {
       await Promise.all(selectedTasks.map(taskId => tasksAPI.updateStatus(taskId, newStatus)));
-      alert(` ${selectedTasks.length} tasks updated to ${newStatus}`);
+      showToast(`${selectedTasks.length} tasks updated to ${newStatus}`, 'success');
       setSelectedTasks([]);
       setBulkMode(false);
       fetchData();
     } catch (error: any) {
-      alert('Error: ' + error.message);
+      showToast('Error: ' + error.message, 'error');
     }
   };
 
@@ -471,12 +476,12 @@ const TasksPage = () => {
     if (!window.confirm(`Delete ${selectedTasks.length} tasks?`)) return;
     try {
       await Promise.all(selectedTasks.map(taskId => tasksAPI.delete(taskId)));
-      alert(` ${selectedTasks.length} tasks deleted`);
+      showToast(`${selectedTasks.length} tasks deleted`, 'success');
       setSelectedTasks([]);
       setBulkMode(false);
       fetchData();
     } catch (error: any) {
-      alert('Error: ' + error.message);
+      showToast('Error: ' + error.message, 'error');
     }
   };
 
@@ -581,6 +586,15 @@ const TasksPage = () => {
         </div>
       </div>
     </div>
+
+    {errorMessage && (
+      <div className={`mb-4 border-2 rounded-lg p-4 flex items-start gap-3 ${
+        darkMode ? 'bg-red-900/20 border-red-700 text-red-200' : 'bg-red-50 border-red-200 text-red-800'
+      }`}>
+        <AlertTriangle className={`w-5 h-5 mt-0.5 ${darkMode ? 'text-red-300' : 'text-red-600'}`} />
+        <p className="text-sm">{errorMessage}</p>
+      </div>
+    )}
 
     {/* Filters & Sorting */}
     <div className={`flex-shrink-0 mb-6 rounded-lg shadow p-4 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
@@ -931,6 +945,7 @@ const TasksPage = () => {
                   <input
                     type="datetime-local"
                     value={formData.dueDate}
+                    min={new Date().toISOString().slice(0, 16)}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({...formData, dueDate: e.target.value})}
                     className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${
                       darkMode ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300 text-gray-900'
@@ -960,6 +975,7 @@ const TasksPage = () => {
                   </label>
                   <TaskDurationPredictor 
                     taskData={taskData}
+                    description={formData.description}
                     onPredictionReceived={handlePredictionReceived}
                     darkMode={darkMode}
                   />
@@ -1105,7 +1121,7 @@ const TasksPage = () => {
           }}
           onAssignmentCreated={() => {
             fetchData();
-            alert('✅ Task assigned successfully!');
+            showToast('Task assigned successfully!', 'success');
           }}
         />
       )}

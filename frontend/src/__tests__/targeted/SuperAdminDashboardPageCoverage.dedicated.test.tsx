@@ -131,6 +131,11 @@ describe("SuperAdminDashboardPage coverage dedicated", () => {
   it("handles fetch failure gracefully", async () => {
     global.fetch = vi.fn(() => Promise.resolve({ ok: false }));
     render(<MemoryRouter><SuperAdminDashboardPage /></MemoryRouter>);
-    await waitFor(() => expect(window.alert).toHaveBeenCalledWith("Failed to load companies"));
+    await waitFor(() =>
+      expect((globalThis as any).__showToast).toHaveBeenCalledWith(
+        "Failed to load companies",
+        "error",
+      ),
+    );
   });
 });

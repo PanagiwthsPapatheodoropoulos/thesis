@@ -79,7 +79,6 @@ class SkillServiceDedicatedTest {
     @DisplayName("Should retrieve all skills successfully")
     void testGetAllSkills_Success() {
         List<Skill> skills = Arrays.asList(testSkill);
-        List<SkillDTO> skillDTOs = Arrays.asList(testSkillDTO);
 
         when(skillRepository.findAll()).thenReturn(skills);
         when(modelMapper.map(testSkill, SkillDTO.class)).thenReturn(testSkillDTO);

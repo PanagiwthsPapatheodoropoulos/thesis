@@ -254,4 +254,20 @@ public class UserController {
         userService.deleteUser(id);
         return ResponseEntity.noContent().build();
     }
+
+    /**
+     * Soft-removes a user from their current company without deleting the account.
+     * The user keeps their credentials but loses company access. On next login
+     * they will be redirected to the company setup page where they can join
+     * another company or create their own.
+     *
+     * @param id The UUID of the user to remove from company.
+     * @return 204 No Content on success.
+     */
+    @PatchMapping("/{id}/remove-from-company")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    public ResponseEntity<Void> removeFromCompany(@PathVariable UUID id) {
+        userService.removeUserFromCompany(id);
+        return ResponseEntity.noContent().build();
+    }
 }

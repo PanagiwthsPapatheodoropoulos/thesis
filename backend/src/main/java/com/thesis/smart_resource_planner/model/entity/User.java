@@ -50,6 +50,7 @@ public class User {
     private String notificationPreferences;
 
     @Column(name = "is_active")
+    @Builder.Default
     private Boolean isActive = true;
 
     @ManyToOne(fetch = FetchType.LAZY)

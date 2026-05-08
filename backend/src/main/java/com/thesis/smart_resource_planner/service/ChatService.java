@@ -363,7 +363,12 @@ public class ChatService {
                 .filter(Objects::nonNull)
                 .filter(u -> u.getRole() != UserRole.USER)
                 .filter(u -> u.getCompany().getId().equals(currentUser.getCompany().getId()))
-                .map(user -> modelMapper.map(user, UserDTO.class))
+                .map(user -> {
+                    UserDTO dto = modelMapper.map(user, UserDTO.class);
+                    employeeRepository.findByUserId(user.getId())
+                            .ifPresent(e -> dto.setProfileImageUrl(e.getProfileImageUrl()));
+                    return dto;
+                })
                 .sorted(Comparator.comparing(UserDTO::getUsername))
                 .toList();
     }
@@ -519,6 +524,7 @@ public class ChatService {
      * @param message the chat message entity
      * @return populated {@link ChatMessageDTO}
      */
+    @SuppressWarnings("unused")
     private ChatMessageDTO mapToDTO(ChatMessage message) {
         return mapToDTO(message, null);
     }

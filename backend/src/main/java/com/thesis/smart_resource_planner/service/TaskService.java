@@ -52,7 +52,7 @@ import java.util.Map;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-@Transactional
+@Transactional(readOnly = true)
 public class TaskService {
 
     private final TaskRepository taskRepository;
@@ -73,6 +73,9 @@ public class TaskService {
     private static final double MIN_TASK_HOURS = 0.25;
     private static final int MAX_SCOPE_CHANGES = 2;
     private static final int MAX_REASSIGNMENTS = 3;
+
+    /** Prefix applied to employee-submitted task requests. */
+    public static final String REQUEST_PREFIX = "[REQUEST] ";
 
     /** Returns the emoji icon associated with a given task status. */
     private String getStatusIcon(TaskStatus status) {
@@ -97,6 +100,7 @@ public class TaskService {
      * @return the saved {@link TaskDTO}
      */
     @CacheEvict(value = "employeeWorkload", allEntries = true)
+    @Transactional
     public TaskDTO createTask(TaskCreateDTO createDTO, UUID createdByUserId) {
         try {
             User createdBy = userRepository.findById(createdByUserId)
@@ -165,14 +169,11 @@ public class TaskService {
                     }
                 }
 
-                // Log what was actually saved for debugging
-                List<UUID> savedSkillIds = getTaskRequiredSkillIds(savedTask.getId());
-
             }
 
             // Create audit log
             try {
-                auditLogService.logTaskAction(savedTask, createdBy, "TASK_CREATED",
+                auditLogService.logTaskAction(savedTask, createdBy, AuditAction.TASK_CREATED,
                         "Task created: " + savedTask.getTitle());
             } catch (Exception e) {
                 log.warn("Audit log failed: {}", e.getMessage());
@@ -198,7 +199,6 @@ public class TaskService {
                 taskAssignmentRepository.saveAndFlush(assignment);
 
                 // Notify ONLY the assigned employee
-                final Employee finalEmployee = assignedEmployee;
                 final Task finalTask = savedTask;
 
                 TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
@@ -216,7 +216,7 @@ public class TaskService {
                                 if (assignedEmployee != null && assignedEmployee.getUser() != null) {
                                     NotificationCreateDTO notification = new NotificationCreateDTO();
                                     notification.setUserId(assignedEmployee.getUser().getId());
-                                    notification.setType("TASK_ASSIGNED");
+                                    notification.setType(NotificationType.TASK_ASSIGNED);
                                     notification.setTitle("📋 Personal Task Assignment");
                                     notification.setMessage(
                                             "You have been personally assigned to task: " + finalTask.getTitle());
@@ -248,7 +248,7 @@ public class TaskService {
 
                                         NotificationCreateDTO notification = new NotificationCreateDTO();
                                         notification.setUserId(member.getId());
-                                        notification.setType("TASK_ASSIGNED");
+                                        notification.setType(NotificationType.TASK_ASSIGNED);
                                         notification.setTitle("📋 New Team Task");
                                         notification.setMessage("New task for your team: " + finalTask.getTitle());
                                         notification.setSeverity(NotificationSeverity.INFO);
@@ -282,7 +282,7 @@ public class TaskService {
 
                                     NotificationCreateDTO notification = new NotificationCreateDTO();
                                     notification.setUserId(user.getId());
-                                    notification.setType("TASK_ASSIGNED");
+                                    notification.setType(NotificationType.TASK_ASSIGNED);
                                     notification.setTitle("📋 New Public Task");
                                     notification.setMessage("New task available: " + finalTask.getTitle());
                                     notification.setSeverity(NotificationSeverity.INFO);
@@ -307,8 +307,10 @@ public class TaskService {
             TaskDTO result = modelMapper.map(savedTask, TaskDTO.class);
             return result;
 
+        } catch (ResourceNotFoundException e) {
+            throw e;
         } catch (Exception e) {
-            throw new RuntimeException("Failed to create task: " + e.getMessage());
+            throw new IllegalStateException("Failed to create task: " + e.getMessage(), e);
         }
     }
 
@@ -323,13 +325,14 @@ public class TaskService {
      * @param requestedByUserId UUID of the employee submitting the request
      * @return the saved {@link TaskDTO} representing the pending request
      */
+    @Transactional
     public TaskDTO createTaskRequest(TaskCreateDTO createDTO, UUID requestedByUserId) {
         try {
             User requestedBy = userRepository.findById(requestedByUserId)
                     .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
             Task task = new Task();
-            task.setTitle("[REQUEST] " + createDTO.getTitle());
+            task.setTitle(REQUEST_PREFIX + createDTO.getTitle());
             task.setDescription(createDTO.getDescription());
             task.setPriority(createDTO.getPriority());
             task.setEstimatedHours(createDTO.getEstimatedHours());
@@ -373,10 +376,10 @@ public class TaskService {
                             try {
                                 NotificationCreateDTO notification = new NotificationCreateDTO();
                                 notification.setUserId(approver.getId());
-                                notification.setType("TASK_REQUEST");
+                                notification.setType(NotificationType.TASK_REQUEST);
                                 notification.setTitle("📝 New Task Request from " + originalRequester.getUsername());
                                 notification.setMessage(originalRequester.getUsername() + " requested: " +
-                                        finalTask.getTitle().replace("[REQUEST] ", ""));
+                                        finalTask.getTitle().replace(REQUEST_PREFIX, ""));
                                 notification.setSeverity(NotificationSeverity.WARNING);
                                 notification.setRelatedEntityType(EntityType.TASK);
                                 notification.setRelatedEntityId(finalTask.getId());
@@ -394,8 +397,10 @@ public class TaskService {
 
             return modelMapper.map(savedTask, TaskDTO.class);
 
+        } catch (ResourceNotFoundException e) {
+            throw e;
         } catch (Exception e) {
-            throw new RuntimeException("Failed to create task request: " + e.getMessage());
+            throw new IllegalStateException("Failed to create task request: " + e.getMessage(), e);
         }
     }
 
@@ -409,16 +414,17 @@ public class TaskService {
      * @param approvedByUserId UUID of the manager/admin approving the request
      * @return the updated {@link TaskDTO}
      */
+    @Transactional
     public TaskDTO approveTask(UUID taskId, UUID approvedByUserId) {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new ResourceNotFoundException("Task not found"));
 
-        User approvedBy = userRepository.findById(approvedByUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        userRepository.findById(approvedByUserId)
+            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         // Remove [REQUEST] prefix but KEEP isEmployeeRequest flag
-        if (task.getTitle().startsWith("[REQUEST]")) {
-            task.setTitle(task.getTitle().replace("[REQUEST] ", "").trim());
+        if (task.getTitle().startsWith(REQUEST_PREFIX)) {
+            task.setTitle(task.getTitle().replace(REQUEST_PREFIX, "").trim());
         }
 
         task.setStatus(TaskStatus.PENDING);
@@ -437,7 +443,7 @@ public class TaskService {
                 // 1.ALWAYS notify the original requester
                 NotificationCreateDTO requesterNotif = new NotificationCreateDTO();
                 requesterNotif.setUserId(originalRequester.getId());
-                requesterNotif.setType("TASK_APPROVED");
+                requesterNotif.setType(NotificationType.TASK_APPROVED);
                 requesterNotif.setTitle("✅ Task Request Approved");
                 requesterNotif.setMessage("Your task request '" + finalTask.getTitle() + "' has been approved!");
                 requesterNotif.setSeverity(NotificationSeverity.SUCCESS);
@@ -461,7 +467,7 @@ public class TaskService {
 
                             NotificationCreateDTO teamNotif = new NotificationCreateDTO();
                             teamNotif.setUserId(member.getId());
-                            teamNotif.setType("TASK_APPROVED");
+                            teamNotif.setType(NotificationType.TASK_APPROVED);
                             teamNotif.setTitle("✅ Task Approved");
                             teamNotif.setMessage(
                                     "Task '" + finalTask.getTitle() + "' has been approved and is now available");
@@ -499,6 +505,7 @@ public class TaskService {
      * @param taskId           UUID of the task request to reject
      * @param rejectedByUserId UUID of the manager/admin rejecting the request
      */
+    @Transactional
     public void rejectTask(UUID taskId, UUID rejectedByUserId) {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new ResourceNotFoundException("Task not found"));
@@ -508,7 +515,7 @@ public class TaskService {
 
         // Get the requester BEFORE changing status
         final User requester = task.getCreatedBy();
-        final String taskTitle = task.getTitle().replace("[REQUEST] ", "");
+        final String taskTitle = task.getTitle().replace(REQUEST_PREFIX, "");
 
         // Mark as cancelled
         task.setStatus(TaskStatus.CANCELLED);
@@ -520,7 +527,7 @@ public class TaskService {
             public void afterCommit() {
                 NotificationCreateDTO notification = new NotificationCreateDTO();
                 notification.setUserId(requester.getId());
-                notification.setType("TASK_REJECTED");
+                notification.setType(NotificationType.TASK_REJECTED);
                 notification.setTitle("❌ Task Request Rejected");
                 notification.setMessage(
                         "Your task request '" + taskTitle + "' was rejected by " + rejectedBy.getUsername());
@@ -656,6 +663,7 @@ public class TaskService {
             @CacheEvict(value = "taskById", key = "#taskId"),
             @CacheEvict(value = "employeeWorkload", allEntries = true)
     })
+    @Transactional
     public TaskDTO updateTaskStatus(UUID taskId, TaskStatus newStatus, UUID updatedByUserId) {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new ResourceNotFoundException("Task not found"));
@@ -746,7 +754,7 @@ public class TaskService {
             // Only show requests that THIS user created
             allTasks = allTasks.stream()
                     .filter(task -> {
-                        if (!task.getTitle().startsWith("[REQUEST]")) {
+                        if (!task.getTitle().startsWith(REQUEST_PREFIX)) {
                             return true; // Keep all non-request tasks
                         }
                         // Only keep requests created by THIS user
@@ -838,7 +846,7 @@ public class TaskService {
             // Filter out OTHER users' requests
             List<Task> filteredTasks = taskPage.getContent().stream()
                     .filter(task -> {
-                        if (!task.getTitle().startsWith("[REQUEST]")) {
+                        if (!task.getTitle().startsWith(REQUEST_PREFIX)) {
                             return true;
                         }
                         return task.getCreatedBy() != null &&
@@ -911,15 +919,15 @@ public class TaskService {
      */
     @Transactional(readOnly = true)
     public List<TaskDTO> getTaskRequests(UUID managerId) {
-        User manager = userRepository.findByIdWithTeam(managerId)
-                .orElseThrow(() -> new ResourceNotFoundException("Manager not found"));
+        userRepository.findByIdWithTeam(managerId)
+            .orElseThrow(() -> new ResourceNotFoundException("Manager not found"));
 
         // Since employee requests have NO team (team = null),
         // all managers and admins can see all requests
         List<Task> allTasks = taskRepository.findByStatus(TaskStatus.PENDING);
 
         List<Task> requests = allTasks.stream()
-                .filter(t -> t.getTitle().startsWith("[REQUEST]"))
+                .filter(t -> t.getTitle().startsWith(REQUEST_PREFIX))
                 .toList();
 
         return requests.stream()
@@ -989,7 +997,7 @@ public class TaskService {
         if (user.getRole() == UserRole.EMPLOYEE) {
             boolean isOwnRequest = task.getCreatedBy() != null &&
                     task.getCreatedBy().getId().equals(userId) &&
-                    task.getTitle().startsWith("[REQUEST]");
+                    task.getTitle().startsWith(REQUEST_PREFIX);
             return isOwnRequest;
         }
 
@@ -1022,7 +1030,7 @@ public class TaskService {
             // 1. They created it AND it was approved (not a [REQUEST])
             boolean isApprovedCreator = task.getCreatedBy() != null &&
                     task.getCreatedBy().getId().equals(userId) &&
-                    !task.getTitle().startsWith("[REQUEST]");
+                    !task.getTitle().startsWith(REQUEST_PREFIX);
 
             if (isApprovedCreator) {
                 return true;
@@ -1179,12 +1187,13 @@ public class TaskService {
      * @param newStatus the new status
      * @param changedBy UUID of the user who changed the status
      */
+    @SuppressWarnings("unused")
     private void notifyStatusChange(Task task, TaskStatus oldStatus, TaskStatus newStatus, UUID changedBy) {
         // Notify creator if someone else changed status
         if (task.getCreatedBy() != null && !task.getCreatedBy().getId().equals(changedBy)) {
             NotificationCreateDTO notification = new NotificationCreateDTO();
             notification.setUserId(task.getCreatedBy().getId());
-            notification.setType("TASK_STATUS_CHANGED");
+            notification.setType(NotificationType.TASK_STATUS_CHANGED);
 
             String icon = getStatusIcon(newStatus);
             notification.setTitle(String.format("%s Task Status Updated", icon));
@@ -1212,7 +1221,7 @@ public class TaskService {
 
                 NotificationCreateDTO notification = new NotificationCreateDTO();
                 notification.setUserId(member.getId());
-                notification.setType("TASK_COMPLETED");
+                notification.setType(NotificationType.TASK_COMPLETED);
                 notification.setTitle("✅ Task Completed!");
                 notification.setMessage(String.format(
                         "Task '%s' has been marked as completed",
@@ -1321,6 +1330,7 @@ public class TaskService {
             @CacheEvict(value = "taskById", key = "#id"),
             @CacheEvict(value = "employeeWorkload", allEntries = true)
     })
+    @Transactional
     public TaskDTO updateTask(UUID id, TaskUpdateDTO updateDTO, UUID updatedByUserId) {
         Task task = taskRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Task not found"));
@@ -1397,6 +1407,7 @@ public class TaskService {
             @CacheEvict(value = "taskById", key = "#id"),
             @CacheEvict(value = "employeeWorkload", allEntries = true)
     })
+    @Transactional
     public void deleteTask(UUID id) {
         if (!taskRepository.existsById(id)) {
             throw new ResourceNotFoundException("Task not found");
@@ -1406,6 +1417,7 @@ public class TaskService {
     }
 
     /** Broadcasts a task-created event to appropriate users via WebSocket. */
+    @SuppressWarnings("unused")
     private void broadcastTaskCreated(Task task) {
         try {
             TaskDTO taskDTO = modelMapper.map(task, TaskDTO.class);
@@ -1516,6 +1528,7 @@ public class TaskService {
      * Notifies all relevant managers and admins when an employee submits a task
      * request.
      */
+    @SuppressWarnings("unused")
     private void broadcastTaskRequest(Task task) {
         try {
             TaskDTO taskDTO = modelMapper.map(task, TaskDTO.class);
@@ -1559,7 +1572,7 @@ public class TaskService {
     private void sendDeadlineNotification(Task task, User user) {
         NotificationCreateDTO notification = new NotificationCreateDTO();
         notification.setUserId(user.getId());
-        notification.setType("DEADLINE_REMINDER");
+        notification.setType(NotificationType.DEADLINE_REMINDER);
         notification.setTitle("⏰ Task Deadline Approaching");
         notification.setMessage(String.format(
                 "Task '%s' is due in 24 hours (%s)",
@@ -1577,6 +1590,7 @@ public class TaskService {
      * notifications for all tasks due within the next 24 hours.
      */
     @Scheduled(cron = "0 0 9 * * *") // Run daily at 9 AM
+    @Transactional
     public void sendDeadlineReminders() {
         LocalDateTime tomorrow = LocalDateTime.now().plusDays(1);
         LocalDateTime dayAfterTomorrow = LocalDateTime.now().plusDays(2);
@@ -1685,7 +1699,7 @@ public class TaskService {
             }
 
             // Prepare feedback data
-            Map feedback = new HashMap<>();
+            Map<String, Object> feedback = new HashMap<>();
             feedback.put("task_id", task.getId().toString());
             feedback.put("actual_hours", task.getActualHours().doubleValue());
             feedback.put("predicted_hours",
@@ -1697,7 +1711,7 @@ public class TaskService {
                     task.getComplexityScore() != null ? task.getComplexityScore().doubleValue() : 0.5);
 
             // Get required skill IDs
-            List skillIds = taskRequiredSkillRepository.findByTaskId(task.getId())
+            List<UUID> skillIds = taskRequiredSkillRepository.findByTaskId(task.getId())
                     .stream()
                     .map(trs -> trs.getSkill().getId())
                     .toList();
@@ -1845,11 +1859,11 @@ public class TaskService {
                 HttpEntity<Map<String, Object>> request = new HttpEntity<>(feedback, headers);
 
                 ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
-                        url,
-                        HttpMethod.POST,
-                        request,
-                        new ParameterizedTypeReference<Map<String, Object>>() {
-                        });
+                    url,
+                    HttpMethod.POST,
+                    request,
+                    new ParameterizedTypeReference<Map<String, Object>>() {
+                    });
 
                 if (response.getStatusCode().is2xxSuccessful()) {
                     // Mark as submitted in database
@@ -1904,12 +1918,12 @@ public class TaskService {
 
                 HttpEntity<Map<String, Object>> request = new HttpEntity<>(data, headers);
 
-                ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
-                        url,
-                        HttpMethod.POST,
-                        request,
-                        new ParameterizedTypeReference<Map<String, Object>>() {
-                        });
+                restTemplate.exchange(
+                    url,
+                    HttpMethod.POST,
+                    request,
+                    new ParameterizedTypeReference<Map<String, Object>>() {
+                    });
 
             } catch (Exception e) {
                 log.warn("Failed to track prediction for task {}: {}",

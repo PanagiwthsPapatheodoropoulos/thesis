@@ -73,7 +73,10 @@ describe("SettingsPage dedicated", () => {
     fireEvent.change(passwordInputs[1], { target: { value: "newpass123" } });
     fireEvent.change(passwordInputs[2], { target: { value: "different123" } });
     fireEvent.click(screen.getByText("Update Password"));
-    expect(window.alert).toHaveBeenCalledWith("Passwords do not match!");
+    expect((globalThis as any).__showToast).toHaveBeenCalledWith(
+      "Passwords do not match!",
+      "warning",
+    );
   });
 
   it("saves notification preferences with server fallback alert on failure", async () => {
@@ -83,7 +86,10 @@ describe("SettingsPage dedicated", () => {
     fireEvent.click(screen.getByText("Notifications"));
     fireEvent.click(screen.getByText("Save Notification Settings"));
     await waitFor(() =>
-      expect(window.alert).toHaveBeenCalledWith(expect.stringContaining("Saved locally")),
+      expect((globalThis as any).__showToast).toHaveBeenCalledWith(
+        expect.stringContaining("Saved locally"),
+        "warning",
+      ),
     );
   });
 
@@ -95,7 +101,10 @@ describe("SettingsPage dedicated", () => {
     fireEvent.change(usernameInput, { target: { value: "john_new" } });
     fireEvent.click(screen.getByText("Save Changes"));
     await waitFor(() => expect(mocks.logout).toHaveBeenCalled());
-    expect(window.alert).toHaveBeenCalledWith(expect.stringContaining("Username updated"));
+    expect((globalThis as any).__showToast).toHaveBeenCalledWith(
+      expect.stringContaining("Username updated"),
+      "info",
+    );
   });
 
   it("leaves team from leave-team modal flow", async () => {

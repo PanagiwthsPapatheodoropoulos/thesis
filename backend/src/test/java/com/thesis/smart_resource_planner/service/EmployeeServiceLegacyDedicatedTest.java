@@ -192,10 +192,10 @@ class EmployeeServiceLegacyDedicatedTest {
 
         var pageable = PageRequest.of(0, 10);
         when(userRepository.findById(requesterId)).thenReturn(Optional.of(requester));
-        when(employeeRepository.findByCompanyIdWithFiltersNative(eq(company.getId()), any(), any(), any(), eq(pageable)))
+        when(employeeRepository.findByCompanyIdWithFiltersNative(eq(company.getId()), eq(UserRole.EMPLOYEE.name()), any(), any(), any(), eq(pageable)))
                 .thenReturn(Page.empty(pageable));
 
-        Page<EmployeeDTO> result = employeeService.getEmployeesPaginated(requesterId, pageable, null, null, null);
+        Page<EmployeeDTO> result = employeeService.getEmployeesPaginated(requesterId, pageable, null, null, null, null);
         assertTrue(result.isEmpty());
     }
 

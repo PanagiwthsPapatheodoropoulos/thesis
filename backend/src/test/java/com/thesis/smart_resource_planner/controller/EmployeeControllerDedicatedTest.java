@@ -3,6 +3,7 @@ package com.thesis.smart_resource_planner.controller;
 import com.thesis.smart_resource_planner.enums.UserRole;
 import com.thesis.smart_resource_planner.exception.ResourceNotFoundException;
 import com.thesis.smart_resource_planner.model.dto.EmployeeCreateDTO;
+import com.thesis.smart_resource_planner.model.dto.EmployeeDTO;
 import com.thesis.smart_resource_planner.model.dto.EmployeeAvailabilityDTO;
 import com.thesis.smart_resource_planner.model.dto.EmployeeSkillDTO;
 import com.thesis.smart_resource_planner.model.entity.Company;
@@ -233,7 +234,7 @@ class EmployeeControllerDedicatedTest {
         ownEmployee.setUser(owner);
         when(employeeRepository.findById(employeeId)).thenReturn(Optional.of(ownEmployee));
         when(employeeService.updateEmployee(eq(employeeId), any(EmployeeCreateDTO.class)))
-                .thenReturn(new com.thesis.smart_resource_planner.model.dto.EmployeeDTO());
+            .thenReturn(new EmployeeDTO());
 
         ResponseEntity<?> response = employeeController.updateEmployee(employeeId, new EmployeeCreateDTO(), employeePrincipal);
         assertEquals(HttpStatus.OK, response.getStatusCode());

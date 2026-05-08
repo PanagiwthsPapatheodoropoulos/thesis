@@ -35,6 +35,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @DisplayName("TaskController Tests")
+@SuppressWarnings("removal")
 class TaskControllerLegacyDedicatedTest {
 
     @Autowired

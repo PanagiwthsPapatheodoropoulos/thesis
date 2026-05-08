@@ -69,7 +69,10 @@ describe("CompanySetupPage coverage", () => {
         adminEmail: "admin@test.com",
         adminPassword: "pass123"
       });
-      expect(window.alert).toHaveBeenCalledWith(expect.stringContaining("CODE123"));
+      expect((globalThis as any).__showToast).toHaveBeenCalledWith(
+        expect.stringContaining("CODE123"),
+        "success",
+      );
     });
   });
 

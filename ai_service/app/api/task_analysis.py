@@ -6,11 +6,13 @@ processing to determine complexity scores, risk levels, effort estimates, and ca
 classification. It also supports backlog prioritization for organizational planning.
 """
 
-from fastapi import APIRouter, HTTPException, Header, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Header, BackgroundTasks, Request
 from typing import List, Optional
 import logging
 from pydantic import BaseModel
 import time
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from app.models.task_analyzer import TaskComplexityAnalyzer, TaskCategory
 from app.core.redis_client import redis_client
@@ -19,6 +21,7 @@ from app.core.backend_client import backend_client
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+limiter = Limiter(key_func=get_remote_address)
 
 # Initialize analyzer (loads models on startup)
 task_analyzer = TaskComplexityAnalyzer()
@@ -142,8 +145,10 @@ class EstimationRequest(BaseModel):
 # ENDPOINTS
 
 @router.post("/analyze", response_model=TaskAnalysisResponse)
+@limiter.limit("15/minute")
 async def analyze_task(
-    request: TaskAnalysisRequest,
+    request: Request,
+    analysis_request: TaskAnalysisRequest,
     authorization: str = Header(...),
     x_company_id: str = Header(...)
 ):
@@ -168,15 +173,15 @@ async def analyze_task(
     
     try:
         # Check cache
-        cache_key = f"analysis:{hash(request.title + (request.description or ''))}"
+        cache_key = f"analysis:{hash(analysis_request.title + (analysis_request.description or ''))}"
         cached = await redis_client.get(x_company_id, cache_key)
         if cached:
             return cached
         
         # Analyze task
         analysis = task_analyzer.analyze_task(
-            title=request.title,
-            description=request.description or "",
+            title=analysis_request.title,
+            description=analysis_request.description or "",
             existing_tasks=None
         )
         

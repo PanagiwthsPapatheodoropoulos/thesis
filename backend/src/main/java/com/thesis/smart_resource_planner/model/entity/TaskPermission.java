@@ -28,12 +28,15 @@ public class TaskPermission {
     private User user;
 
     @Column(nullable = false)
+    @Builder.Default
     private Boolean canEdit = false;
 
     @Column(nullable = false)
+    @Builder.Default
     private Boolean canDelete = false;
 
     @Column(nullable = false)
+    @Builder.Default
     private Boolean canComplete = false;
 
     @ManyToOne(fetch = FetchType.LAZY)

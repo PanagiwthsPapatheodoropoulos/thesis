@@ -2,6 +2,7 @@
 package com.thesis.smart_resource_planner.service;
 
 import com.thesis.smart_resource_planner.enums.NotificationSeverity;
+import com.thesis.smart_resource_planner.enums.NotificationType;
 import com.thesis.smart_resource_planner.exception.ResourceNotFoundException;
 import com.thesis.smart_resource_planner.model.dto.NotificationCreateDTO;
 import com.thesis.smart_resource_planner.model.dto.NotificationDTO;
@@ -84,7 +85,7 @@ public class NotificationService {
                     dto);
 
             // 2. If it's a promotion, send BOTH notification types
-            if ("ROLE_PROMOTION".equals(saved.getType())) {
+            if (NotificationType.ROLE_PROMOTION.equals(saved.getType())) {
                 Map<String, Object> promotionData = new java.util.HashMap<>();
                 promotionData.put("userId", saved.getUser().getId().toString());
                 promotionData.put("type", "ROLE_PROMOTION");
@@ -287,7 +288,7 @@ public class NotificationService {
         for (User member : teamMembers) {
             NotificationCreateDTO notification = new NotificationCreateDTO();
             notification.setUserId(member.getId());
-            notification.setType("TEAM_UPDATE");
+            notification.setType(NotificationType.TEAM_UPDATE);
             notification.setTitle(title);
             notification.setMessage(message);
             notification.setSeverity(severity);

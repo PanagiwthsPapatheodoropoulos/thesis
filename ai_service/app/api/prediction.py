@@ -7,10 +7,12 @@ temporal patterns) and Random Forest (for static feature importance) to
 generate point estimates and confidence intervals based on organizational history.
 """
 
-from fastapi import APIRouter, HTTPException, Header
+from fastapi import APIRouter, HTTPException, Header, Request
 from typing import List, Optional, Dict
 import logging
 from pydantic import BaseModel, ConfigDict, Field
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from app.core.backend_client import backend_client
 from app.core.redis_client import redis_client
@@ -19,6 +21,7 @@ from app.models.lstm_predictor import HybridDurationPredictor
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+limiter = Limiter(key_func=get_remote_address)
 
 # ============================================================
 # MODELS
@@ -71,8 +74,10 @@ class PredictionResponse(BaseModel):
 # ============================================================
 
 @router.post("/predict", response_model=PredictionResponse)
+@limiter.limit("10/minute")
 async def predict_task_duration(
-    request: PredictionRequest,
+    request: Request,
+    prediction_request: PredictionRequest,
     authorization: str = Header(...),
     x_company_id: str = Header(...)
 ):
@@ -95,7 +100,7 @@ async def predict_task_duration(
     token = authorization.replace("Bearer ", "")
     
     # Step 1: Cache Lookup - Prevent redundant expensive ML inference
-    cache_key = f"prediction:{request.task_id}"
+    cache_key = f"prediction:{prediction_request.task_id}"
     cached_result = await redis_client.get(x_company_id, cache_key)
     if cached_result:
         return cached_result
@@ -116,10 +121,10 @@ async def predict_task_duration(
         
         # Step 4: Employee Context - Optionally factor in the assigned person's skill depth
         employee_skills = None
-        if request.assigned_employee_id:
+        if prediction_request.assigned_employee_id:
             try:
                 employee_skills = await backend_client.get_employee_skills(
-                    request.assigned_employee_id, token, x_company_id
+                    prediction_request.assigned_employee_id, token, x_company_id
                 )
             except Exception as e:
                 logger.warning(f"Skipping employee context due to fetch error: {str(e)}")
@@ -129,8 +134,8 @@ async def predict_task_duration(
         if historical_tasks:
             filtered = [
                 t for t in historical_tasks
-                if t.get('priority') == request.priority
-                and abs(t.get('complexityScore', 0.5) - request.complexity_score) < 0.3
+                if t.get('priority') == prediction_request.priority
+                and abs(t.get('complexityScore', 0.5) - prediction_request.complexity_score) < 0.3
             ]
             
             # Weighted fallback: Similar tasks -> All tasks -> None
@@ -144,9 +149,9 @@ async def predict_task_duration(
         
         prediction, p25, p75 = predictor.predict(
             task_features={
-                'priority': request.priority,
-                'complexity_score': request.complexity_score,
-                'required_skills': request.required_skill_ids,
+                'priority': prediction_request.priority,
+                'complexity_score': prediction_request.complexity_score,
+                'required_skills': prediction_request.required_skill_ids,
                 'historical_avg': historical_avg
             },
             recent_tasks=lookback_window
@@ -177,7 +182,7 @@ async def predict_task_duration(
             except Exception: pass
         
         final_response = {
-            'task_id': request.task_id,
+            'task_id': prediction_request.task_id,
             'predicted_hours': float(prediction),
             'confidence_interval_lower': float(p25),
             'confidence_interval_upper': float(p75),

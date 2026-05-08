@@ -10,6 +10,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useWebSocket, EVENT_TYPES } from '../contexts/WebSocketProvider';
 import { getProfileImageUrl } from '../utils/api';
 import Pagination from '../components/Pagination';
+import { useToast } from '../components/Toast';
 import type { Team, Employee, PaginatedResponse, TeamFilters } from '../types';
 
 /**
@@ -23,6 +24,7 @@ import type { Team, Employee, PaginatedResponse, TeamFilters } from '../types';
 const TeamsPage = () => {
   const { user } = useAuth();
   const { darkMode } = useTheme();
+  const { showToast } = useToast();
   
   // Data State
   const [teams, setTeams] = useState<any[]>([]);
@@ -30,6 +32,7 @@ const TeamsPage = () => {
   const [employees, setEmployees] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [hasEmployeeProfile, setHasEmployeeProfile] = useState<boolean>(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Modal State
   const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
@@ -97,18 +100,15 @@ const TeamsPage = () => {
 
   // Local window event listener
   useEffect(() => {
-    const handleProfileUpdate = (event) => {
-      fetchData(); // Always refresh main list
-      if (selectedTeam) {
-        handleViewDetails(selectedTeam.id); // Refresh modal if open
+    const handleProfileUpdate = () => {
+      fetchData();
+      if (showDetailsModal && selectedTeam) {
+        handleViewDetails(selectedTeam.id || selectedTeam.teamId);
       }
     };
-
     window.addEventListener('profileUpdated', handleProfileUpdate);
-    return () => {
-      window.removeEventListener('profileUpdated', handleProfileUpdate);
-    };
-  }, [selectedTeam]);
+    return () => window.removeEventListener('profileUpdated', handleProfileUpdate);
+  }, [showDetailsModal, selectedTeam]);
 
   // Reset page on new search
   useEffect(() => {
@@ -150,6 +150,7 @@ const TeamsPage = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
+      setErrorMessage(null);
       let allUsers = [];
 
       // 1. Fetch Users (if admin) and Employees
@@ -214,6 +215,7 @@ const TeamsPage = () => {
       setTeams(teamsWithCounts);
     } catch (error: any) {
       console.error('Error fetching data:', error);
+      setErrorMessage('Failed to load teams. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -238,7 +240,7 @@ const TeamsPage = () => {
       setFormData({ name: '', description: '' });
       await fetchData();
     } catch (error: any) {
-      alert('Error creating team: ' + error.message);
+      showToast('Error creating team: ' + error.message, 'error');
     }
   };
 
@@ -251,6 +253,7 @@ const TeamsPage = () => {
    * @returns {Promise<void>}
    */
   const handleViewDetails = async (teamId) => {
+    setErrorMessage(null);
     try {
       // Force fresh fetch of team details
       const teamDetails = await teamsAPI.getById(teamId);
@@ -282,6 +285,7 @@ const TeamsPage = () => {
       await fetchData();
     } catch (error: any) {
       console.error('Error fetching team details:', error);
+      setErrorMessage('Unable to load team details. Please try again.');
     }
   };
 
@@ -318,7 +322,7 @@ const TeamsPage = () => {
       handleViewDetails(selectedTeam.id);
       setShowConfirmModal(false);
     } catch (error: any) {
-      alert('Error adding member: ' + error.message);
+      showToast('Error adding member: ' + error.message, 'error');
     }
   };
 
@@ -333,7 +337,7 @@ const TeamsPage = () => {
       handleViewDetails(selectedTeam.id);
       setShowConfirmModal(false);
     } catch (error: any) {
-      alert('Error removing member: ' + error.message);
+      showToast('Error removing member: ' + error.message, 'error');
     }
   };
 
@@ -353,7 +357,7 @@ const TeamsPage = () => {
       setShowConfirmModal(false);
       await fetchData();
     } catch (error: any) {
-      alert('Error deleting team: ' + error.message);
+      showToast('Error deleting team: ' + error.message, 'error');
       setShowConfirmModal(false);
     }
   };
@@ -437,6 +441,15 @@ const TeamsPage = () => {
         )}
       </div>
     </div>
+
+    {errorMessage && (
+      <div className={`mb-4 border-2 rounded-lg p-4 flex items-start gap-3 ${
+        darkMode ? 'bg-red-900/20 border-red-700 text-red-200' : 'bg-red-50 border-red-200 text-red-800'
+      }`}>
+        <AlertTriangle className={`w-5 h-5 mt-0.5 ${darkMode ? 'text-red-300' : 'text-red-600'}`} />
+        <p className="text-sm">{errorMessage}</p>
+      </div>
+    )}
 
     {/* Teams Grid */}
     <div className='flex-1 overflow-auto mb-6'>

@@ -124,7 +124,12 @@ describe("TasksPage coverage — uncovered branches", () => {
     await waitFor(() => expect(mocks.getAllPaginated).toHaveBeenCalled());
 
     fireEvent.click(screen.getByText("Start Task"));
-    await waitFor(() => expect(window.alert).toHaveBeenCalled());
+    await waitFor(() =>
+      expect((globalThis as any).__showToast).toHaveBeenCalledWith(
+        expect.stringContaining("Error:"),
+        "error",
+      ),
+    );
   });
 
   it("bulk Start selected tasks", async () => {
@@ -158,7 +163,12 @@ describe("TasksPage coverage — uncovered branches", () => {
 
     fireEvent.click(screen.getByText(/Complete \(\d+\)/i));
     await waitFor(() => expect(mocks.updateStatus).toHaveBeenCalledWith("c1", "COMPLETED"));
-    await waitFor(() => expect(window.alert).toHaveBeenCalled());
+    await waitFor(() =>
+      expect((globalThis as any).__showToast).toHaveBeenCalledWith(
+        expect.stringContaining("updated to COMPLETED"),
+        "success",
+      ),
+    );
   });
 
   it("exits bulk mode via toggle button", async () => {
@@ -181,7 +191,10 @@ describe("TasksPage coverage — uncovered branches", () => {
 
     fireEvent.click(screen.getByText(/Reject/i));
     await waitFor(() => expect(mocks.rejectTask).toHaveBeenCalledWith("r1"));
-    expect(window.alert).toHaveBeenCalled();
+    expect((globalThis as any).__showToast).toHaveBeenCalledWith(
+      "Task request rejected",
+      "success",
+    );
   });
 
   it("reject task aborts when confirm is false", async () => {
@@ -274,7 +287,12 @@ describe("TasksPage coverage — uncovered branches", () => {
     fireEvent.change(document.querySelector('input[type="datetime-local"]'), { target: { value: "2026-12-01T10:00" } });
     fireEvent.click(screen.getByText("Create Task"));
 
-    await waitFor(() => expect(window.alert).toHaveBeenCalledWith(expect.stringContaining("Server error")));
+    await waitFor(() =>
+      expect((globalThis as any).__showToast).toHaveBeenCalledWith(
+        expect.stringContaining("Server error"),
+        "error",
+      ),
+    );
   });
 
   it("shows no tasks found message", async () => {
@@ -291,7 +309,12 @@ describe("TasksPage coverage — uncovered branches", () => {
     await waitFor(() => expect(mocks.getAllPaginated).toHaveBeenCalled());
 
     fireEvent.click(screen.getByText("Delete"));
-    await waitFor(() => expect(window.alert).toHaveBeenCalled());
+    await waitFor(() =>
+      expect((globalThis as any).__showToast).toHaveBeenCalledWith(
+        expect.stringContaining("Error:"),
+        "error",
+      ),
+    );
   });
 
   it("bulk delete aborts when confirm returns false", async () => {

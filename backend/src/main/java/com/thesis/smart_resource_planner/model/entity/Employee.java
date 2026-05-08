@@ -5,7 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.GenericGenerator;
+import org.hibernate.annotations.UuidGenerator;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -27,8 +27,8 @@ import java.util.*;
 public class Employee {
 
     @Id
-    @GeneratedValue(generator = "UUID")
-    @GenericGenerator(name = "UUID", strategy = "org.hibernate.id.UUIDGenerator")
+    @GeneratedValue
+    @UuidGenerator
     @Column(updatable = false, nullable = false)
     private UUID id;
 
@@ -55,9 +55,11 @@ public class Employee {
     private BigDecimal hourlyRate;
 
     @Column(name = "max_weekly_hours")
+    @Builder.Default
     private Integer maxWeeklyHours = 40;
 
     @Column(length = 50)
+    @Builder.Default
     private String timezone = "UTC";
 
     @Column(name = "profile_image_url", columnDefinition = "TEXT")

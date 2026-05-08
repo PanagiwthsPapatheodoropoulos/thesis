@@ -13,6 +13,9 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.UUID;
 
+import com.thesis.smart_resource_planner.service.BrevoEmailService;
+import java.util.Map;
+
 /**
  * Controller for handling company-related operations.
  * Allows users to fetch their own company, manage all companies, and regenerate
@@ -26,6 +29,7 @@ import java.util.UUID;
 public class CompanyController {
 
     private final CompanyService companyService;
+    private final BrevoEmailService brevoEmailService;
 
     /**
      * Retrieves the company associated with the current user.
@@ -69,5 +73,21 @@ public class CompanyController {
         // Handle join code generation process
         String newCode = companyService.regenerateJoinCode(companyId);
         return ResponseEntity.ok(newCode);
+    }
+
+    @PostMapping("/email-join-code")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<String> emailJoinCode(
+            @RequestBody Map<String, String> payload,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        String toEmail = payload.get("email");
+        if (toEmail == null || toEmail.isEmpty()) {
+            return ResponseEntity.badRequest().body("Email is required");
+        }
+        
+        CompanyDTO company = companyService.getCompanyById(currentUser.getId());
+        brevoEmailService.sendCompanyJoinCode(toEmail, currentUser.getUsername(), company.getName(), company.getJoinCode());
+        
+        return ResponseEntity.ok("Join code sent successfully");
     }
 }

@@ -82,8 +82,6 @@ public class ModelMapperConfig {
                 dest.setCreatedByName(source.getCreatedBy().getUsername());
             }
 
-            // DO NOT map requiredSkillIds here - let the service handle it
-
             return dest;
         });
 

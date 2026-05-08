@@ -7,18 +7,21 @@ drift and accuracy. High errors or significant data accumulation trigger
 incremental (online) or full retraining of the duration prediction models.
 """
 
-from fastapi import APIRouter, HTTPException, Header, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Header, BackgroundTasks, Request
 from typing import Optional, List
 import logging
 from pydantic import BaseModel, validator, Field
 from datetime import datetime
 import numpy as np
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from app.core.redis_client import redis_client
 from app.core.training_scheduler import training_scheduler
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+limiter = Limiter(key_func=get_remote_address)
 
 # ============================================================
 # MODELS
@@ -94,8 +97,10 @@ class ModelPerformanceResponse(BaseModel):
 # ============================================================
 
 @router.post("/submit", response_model=FeedbackResponse)
+@limiter.limit("20/minute")
 async def submit_feedback(
-    request: PredictionFeedbackRequest,
+    request: Request,
+    feedback_request: PredictionFeedbackRequest,
     background_tasks: BackgroundTasks,
     authorization: str = Header(...),
     x_company_id: str = Header(...)
@@ -121,21 +126,21 @@ async def submit_feedback(
         prediction_error = None
         error_percentage = None
         
-        if request.predicted_hours:
-            prediction_error = abs(request.actual_hours - request.predicted_hours)
+        if feedback_request.predicted_hours:
+            prediction_error = abs(feedback_request.actual_hours - feedback_request.predicted_hours)
             # Avoid division by zero if task was 'instant'
-            safe_actual = max(0.1, request.actual_hours)
+            safe_actual = max(0.1, feedback_request.actual_hours)
             error_percentage = (prediction_error / safe_actual) * 100
             
         # Step 2: Persistent Storage - Save for long-term historical training
-        feedback_id = await _store_feedback(x_company_id, request, prediction_error, error_percentage)
+        feedback_id = await _store_feedback(x_company_id, feedback_request, prediction_error, error_percentage)
         
         # Step 3: Online Learning Buffer - Update the 'Recent Completions' cache
-        await _update_online_learning(x_company_id, request)
+        await _update_online_learning(x_company_id, feedback_request)
         
         # Step 4: Incremental Adaptation - Check if current error justifies an immediate weights update
         if await _should_update_immediately(x_company_id, prediction_error, error_percentage):
-            background_tasks.add_task(_incremental_model_update, x_company_id, request)
+            background_tasks.add_task(_incremental_model_update, x_company_id, feedback_request)
         
         # Step 5: Global Retraining Schedule - Trigger full model rebuild if thresholds reached
         should_retrain = await _check_retrain_threshold(x_company_id)

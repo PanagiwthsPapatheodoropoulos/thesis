@@ -1,5 +1,6 @@
 package com.thesis.smart_resource_planner.service;
 
+import com.thesis.smart_resource_planner.enums.AuditAction;
 import com.thesis.smart_resource_planner.model.dto.TaskAuditLogDTO;
 import com.thesis.smart_resource_planner.model.entity.Task;
 import com.thesis.smart_resource_planner.model.entity.TaskAuditLog;
@@ -40,7 +41,7 @@ public class TaskAuditLogService {
      * @param action      a short, uppercase action identifier (e.g. "TASK_CREATED")
      * @param description a human-readable description of what happened
      */
-    public void logTaskAction(Task task, User user, String action, String description) {
+    public void logTaskAction(Task task, User user, AuditAction action, String description) {
         try {
             TaskAuditLog auditLog = TaskAuditLog.builder()
                     .task(task)
@@ -70,7 +71,7 @@ public class TaskAuditLogService {
             TaskAuditLog auditLog = TaskAuditLog.builder()
                     .task(task)
                     .user(user)
-                    .action("FIELD_UPDATED")
+                    .action(AuditAction.FIELD_UPDATED)
                     .fieldName(fieldName)
                     .oldValue(oldValue)
                     .newValue(newValue)
@@ -132,7 +133,7 @@ public class TaskAuditLogService {
             // Return a minimal DTO instead of throwing
             TaskAuditLogDTO dto = new TaskAuditLogDTO();
             dto.setId(auditLog.getId());
-            dto.setAction(auditLog.getAction() != null ? auditLog.getAction() : "UNKNOWN");
+            dto.setAction(auditLog.getAction() != null ? auditLog.getAction() : AuditAction.FIELD_UPDATED);
             dto.setDescription(auditLog.getDescription() != null ? auditLog.getDescription() : "");
             dto.setUserName("System");
             dto.setCreatedAt(auditLog.getCreatedAt());

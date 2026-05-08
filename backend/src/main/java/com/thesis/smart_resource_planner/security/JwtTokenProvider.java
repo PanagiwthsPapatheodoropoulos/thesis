@@ -17,9 +17,11 @@ import java.util.Date;
  * (JWTs).
  *
  * <p>
- * Tokens are signed with HMAC-SHA512 using a secret key configured via
- * the {@code JWT_SECRET} environment variable. The expiration window is
- * controlled by {@code JWT_EXPIRATION_MS}.
+ * Supports a two-token system: short-lived <em>access tokens</em> for API
+ * authorization and long-lived <em>refresh tokens</em> for obtaining new
+ * access tokens without re-authentication. Tokens are signed with
+ * HMAC-SHA512 using a secret key configured via the {@code JWT_SECRET}
+ * environment variable.
  * </p>
  */
 @Component
@@ -32,6 +34,9 @@ public class JwtTokenProvider {
     @Value("${JWT_EXPIRATION_MS}")
     private long jwtExpirationMs;
 
+    @Value("${JWT_REFRESH_EXPIRATION_MS:604800000}")
+    private long jwtRefreshExpirationMs;
+
     /**
      * Derives the HMAC-SHA512 signing key from the configured JWT secret.
      *
@@ -43,7 +48,7 @@ public class JwtTokenProvider {
     }
 
     /**
-     * Generates a signed JWT for the authenticated principal.
+     * Generates a signed access JWT for the authenticated principal.
      *
      * @param authentication the Spring Security authentication object
      *                       whose principal must be a {@link UserDetails}
@@ -58,12 +63,13 @@ public class JwtTokenProvider {
                 .setSubject(userDetails.getUsername())
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
+                .claim("type", "access")
                 .signWith(getSigningKey(), SignatureAlgorithm.HS512)
                 .compact();
     }
 
     /**
-     * Generates a signed JWT directly from a username string.
+     * Generates a signed access JWT directly from a username string.
      * Useful when a full {@link Authentication} object is not available
      * (e.g., programmatic token refresh scenarios).
      *
@@ -78,6 +84,28 @@ public class JwtTokenProvider {
                 .setSubject(username)
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
+                .claim("type", "access")
+                .signWith(getSigningKey(), SignatureAlgorithm.HS512)
+                .compact();
+    }
+
+    /**
+     * Generates a long-lived refresh token for the given username.
+     * Refresh tokens carry a {@code "type": "refresh"} claim and use
+     * the separate {@code JWT_REFRESH_EXPIRATION_MS} expiry window.
+     *
+     * @param username the username to embed as the token subject
+     * @return the compact, URL-safe refresh JWT string
+     */
+    public String generateRefreshToken(String username) {
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + jwtRefreshExpirationMs);
+
+        return Jwts.builder()
+                .setSubject(username)
+                .setIssuedAt(now)
+                .setExpiration(expiryDate)
+                .claim("type", "refresh")
                 .signWith(getSigningKey(), SignatureAlgorithm.HS512)
                 .compact();
     }

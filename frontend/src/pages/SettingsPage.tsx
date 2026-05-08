@@ -3,13 +3,14 @@
  * @description Page component allowing users to manage account settings, security, and preferences.
  */
 import React, { useState, useEffect } from 'react';
-import { User, Bell, Lock, Globe, Trash2, Shield, AlertTriangle, Building2, FileText, ExternalLink, X } from 'lucide-react';
+import { User, Bell, Lock, Globe, Trash2, Shield, AlertTriangle, Building2, FileText, ExternalLink, X, Eye, EyeOff, Key, Ban } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { usersAPI } from '../utils/api';
+import { usersAPI, companiesAPI, blocklistAPI } from '../utils/api';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
 import LegalDocumentContent from '../components/LegalDocumentContent';
 import { LEGAL_DOC_ORDER, LEGAL_DOCUMENTS, type LegalDocumentType } from '../utils/legalContent';
+import { useToast } from '../components/Toast';
 
 
 /**
@@ -24,6 +25,7 @@ const SettingsPage = () => {
   const { user, logout, updateUser } = useAuth();
   const { darkMode } = useTheme();
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState('profile');
   const [showDeleteModal, setShowDeleteModal] = useState<boolean>(false);
   const [showLeaveTeamModal, setShowLeaveTeamModal] = useState<boolean>(false);
@@ -33,6 +35,16 @@ const SettingsPage = () => {
   const [managerCount, setManagerCount] = useState<number>(0);
   const [userTeam, setUserTeam] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(false);
+
+  // Join Code (admin only)
+  const [joinCode, setJoinCode] = useState<string>('');
+  const [joinCodeVisible, setJoinCodeVisible] = useState<boolean>(false);
+  const [joinCodeLoading, setJoinCodeLoading] = useState<boolean>(false);
+
+  // Blocklist (admin/manager)
+  const [blocklist, setBlocklist] = useState<any[]>([]);
+  const [blocklistLoading, setBlocklistLoading] = useState<boolean>(false);
+  const [newBlockEmail, setNewBlockEmail] = useState<string>('');
 
   // Profile Settings
   const [profileData, setProfileData] = useState({
@@ -72,6 +84,10 @@ const SettingsPage = () => {
   useEffect(() => {
     if (user?.role === 'ADMIN' || user?.role === 'MANAGER') {
       fetchRoleCounts();
+      fetchBlocklist();
+    }
+    if (user?.role === 'ADMIN') {
+      fetchJoinCode();
     }
     fetchUserTeam();
     loadPreferences();
@@ -113,6 +129,72 @@ const SettingsPage = () => {
     }
   };
 
+  /** Fetches company info and extracts the join code (admin only). */
+  const fetchJoinCode = async () => {
+    setJoinCodeLoading(true);
+    try {
+      const company = await companiesAPI.getMyCompany();
+      setJoinCode(company.joinCode || '');
+    } catch (e) {
+      console.error('Failed to load join code', e);
+    } finally {
+      setJoinCodeLoading(false);
+    }
+  };
+
+  /** Regenerates the company join code (admin only). */
+  const handleRegenerateJoinCode = async () => {
+    if (!window.confirm('Regenerate join code? The old code will stop working immediately.')) return;
+    setJoinCodeLoading(true);
+    try {
+      const company = await companiesAPI.getMyCompany();
+      const newCode = await companiesAPI.regenerateJoinCode(company.id);
+      setJoinCode(typeof newCode === 'string' ? newCode : newCode.joinCode || '');
+      showToast('Join code regenerated! Share the new code with your team.', 'success');
+    } catch (e: any) {
+      showToast('Failed to regenerate join code: ' + e.message, 'error');
+    } finally {
+      setJoinCodeLoading(false);
+    }
+  };
+
+  /** Fetches the current blocklist for the company. */
+  const fetchBlocklist = async () => {
+    setBlocklistLoading(true);
+    try {
+      const data = await blocklistAPI.getAll();
+      setBlocklist(Array.isArray(data) ? data : []);
+    } catch (e) {
+      setBlocklist([]);
+    } finally {
+      setBlocklistLoading(false);
+    }
+  };
+
+  /** Adds an email to the blocklist. */
+  const handleBlockEmail = async () => {
+    if (!newBlockEmail.trim()) return;
+    try {
+      await blocklistAPI.block(newBlockEmail.trim());
+      setNewBlockEmail('');
+      showToast('Email blocked successfully.', 'success');
+      await fetchBlocklist();
+    } catch (e: any) {
+      showToast('Failed to block email: ' + e.message, 'error');
+    }
+  };
+
+  /** Removes an email from the blocklist. */
+  const handleUnblockEntry = async (id: string) => {
+    try {
+      await blocklistAPI.unblock(id);
+      showToast('Email unblocked.', 'success');
+      await fetchBlocklist();
+    } catch (e: any) {
+      showToast('Failed to unblock: ' + e.message, 'error');
+    }
+  };
+
   /**
    * Processes profile updates and optionally username changes which force logout.
    * 
@@ -144,14 +226,14 @@ const SettingsPage = () => {
             throw new Error(errorText || 'Failed to update username');
           }
           
-          alert('Username updated! Please log in again with your new username: ' + profileData.username);
+          showToast('Username updated! Please log in again with your new username: ' + profileData.username, 'info');
           
           logout();
           navigate('/login');
           return;
           
         } catch (error: any) {
-          alert('Error updating username: ' + error.message);
+          showToast('Error updating username: ' + error.message, 'error');
           setLoading(false);
           return;
         }
@@ -163,10 +245,10 @@ const SettingsPage = () => {
         updateUser({ ...user, email: profileData.email });
       }
       
-      alert('Profile updated successfully!');
+      showToast('Profile updated successfully!', 'success');
       
     } catch (error: any) {
-      alert('Error updating profile: ' + error.message);
+      showToast('Error updating profile: ' + error.message, 'error');
     } finally {
       setLoading(false);
     }
@@ -184,12 +266,12 @@ const SettingsPage = () => {
     e.preventDefault();
     
     if (passwordData.newPassword !== passwordData.confirmPassword) {
-      alert('Passwords do not match!');
+      showToast('Passwords do not match!', 'warning');
       return;
     }
 
     if (passwordData.newPassword.length < 8) {
-      alert('Password must be at least 8 characters!');
+      showToast('Password must be at least 8 characters!', 'warning');
       return;
     }
 
@@ -212,10 +294,10 @@ const SettingsPage = () => {
         throw new Error(errorData.message || 'Failed to update password');
       }
 
-      alert('Password updated successfully!');
+      showToast('Password updated successfully!', 'success');
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
     } catch (error: any) {
-      alert('Error updating password: ' + error.message);
+      showToast('Error updating password: ' + error.message, 'error');
     } finally {
       setLoading(false);
     }
@@ -238,9 +320,9 @@ const SettingsPage = () => {
             body: JSON.stringify({ preferences: prefsString })
         });
         
-        alert('Notification preferences saved to profile!');
+        showToast('Notification preferences saved to profile!', 'success');
     } catch (error: any) {
-        alert('Saved locally, but failed to sync with server.');
+        showToast('Saved locally, but failed to sync with server.', 'warning');
     }
   };
 
@@ -248,7 +330,7 @@ const SettingsPage = () => {
     e.preventDefault();
     localStorage.setItem('language', preferences.language);
     localStorage.setItem('timezone', preferences.timezone);
-    alert('Preferences saved! Refresh the page to see changes.');
+    showToast('Preferences saved! Refresh the page to see changes.', 'success');
   };
 
   const openLegalModal = (documentType: LegalDocumentType) => {
@@ -272,9 +354,9 @@ const SettingsPage = () => {
       
       setUserTeam(null);
       setShowLeaveTeamModal(false);
-      alert('You have left the team successfully.');
+      showToast('You have left the team successfully.', 'success');
     } catch (error: any) {
-      alert('Error leaving team: ' + error.message);
+      showToast('Error leaving team: ' + error.message, 'error');
     } finally {
       setLoading(false);
     }
@@ -284,12 +366,12 @@ const SettingsPage = () => {
     setLoading(true);
     try {
       if (user.role === 'ADMIN' && adminCount <= 1) {
-        alert('Cannot delete the last admin account.');
+        showToast('Cannot delete the last admin account.', 'warning');
         setLoading(false);
         return;
       }
       if (user.role === 'MANAGER' && managerCount <= 1) {
-        alert('Cannot delete the last manager account.');
+        showToast('Cannot delete the last manager account.', 'warning');
         setLoading(false);
         return;
       }
@@ -304,11 +386,11 @@ const SettingsPage = () => {
     } catch (error: any) {
       if (error.message.includes('403') || error.message.includes('Forbidden')) {
         setShowDeleteModal(false);
-        alert('Account deleted successfully');
+        showToast('Account deleted successfully', 'success');
         logout();
         navigate('/');
       } else {
-        alert('Error deleting account: ' + error.message);
+        showToast('Error deleting account: ' + error.message, 'error');
         setLoading(false);
         setShowDeleteModal(false);
       }
@@ -626,6 +708,153 @@ const SettingsPage = () => {
                   {loading ? 'Updating...' : 'Update Password'}
                 </button>
               </form>
+
+              <div className={`mt-8 pt-8 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                {/* ── JOIN CODE SECTION (admin only) ── */}
+                {user?.role === 'ADMIN' && (
+                  <div className={`mb-8 p-5 rounded-xl border-2 ${
+                    darkMode ? 'border-indigo-700 bg-indigo-900/20' : 'border-indigo-200 bg-indigo-50'
+                  }`}>
+                    <div className="flex items-center gap-2 mb-3">
+                      <Key className={`w-5 h-5 ${darkMode ? 'text-indigo-400' : 'text-indigo-600'}`} />
+                      <h3 className={`text-lg font-bold ${darkMode ? 'text-indigo-300' : 'text-indigo-800'}`}>
+                        Company Join Code
+                      </h3>
+                    </div>
+                    <p className={`text-sm mb-4 ${darkMode ? 'text-indigo-200' : 'text-indigo-700'}`}>
+                      Share this code with people you want to invite to your company.
+                    </p>
+
+                    {joinCodeLoading ? (
+                      <div className="flex items-center gap-2 py-3">
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-500" />
+                        <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Loading...</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-3">
+                        <div className={`flex-1 px-4 py-3 rounded-lg border-2 font-mono text-xl tracking-widest text-center select-all transition-all duration-300 ${
+                          joinCodeVisible
+                            ? (darkMode ? 'border-indigo-600 bg-gray-900 text-indigo-300' : 'border-indigo-400 bg-white text-indigo-700')
+                            : 'blur-sm cursor-pointer '
+                        } ${darkMode ? 'bg-gray-900' : 'bg-white'}`}>
+                          {joinCode || '------'}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setJoinCodeVisible(v => !v)}
+                          className={`p-3 rounded-lg transition ${
+                            darkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-200' : 'bg-white border border-gray-300 hover:bg-gray-50 text-gray-700'
+                          }`}
+                          title={joinCodeVisible ? 'Hide code' : 'Show code'}
+                        >
+                          {joinCodeVisible ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        </button>
+                      </div>
+                    )}
+
+                    <div className={`mt-3 p-3 rounded-lg flex items-start gap-2 ${
+                      darkMode ? 'bg-red-900/20 border border-red-800' : 'bg-red-50 border border-red-200'
+                    }`}>
+                      <Shield className={`w-4 h-4 flex-shrink-0 mt-0.5 ${darkMode ? 'text-red-400' : 'text-red-600'}`} />
+                      <p className={`text-xs font-medium ${darkMode ? 'text-red-300' : 'text-red-700'}`}>
+                        🔒 Do not share this code with people outside your company. Anyone with this code can request to join your workspace.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleRegenerateJoinCode}
+                      disabled={joinCodeLoading}
+                      className={`mt-3 px-4 py-2 text-sm rounded-lg border transition disabled:opacity-50 ${
+                        darkMode
+                          ? 'border-indigo-600 text-indigo-300 hover:bg-indigo-900/40'
+                          : 'border-indigo-400 text-indigo-700 hover:bg-indigo-100'
+                      }`}
+                    >
+                      🔄 Regenerate Code
+                    </button>
+                  </div>
+                )}
+
+                {/* ── BLOCKLIST SECTION (admin + manager) ── */}
+                {(user?.role === 'ADMIN' || user?.role === 'MANAGER') && (
+                  <div className={`mb-8 p-5 rounded-xl border-2 ${
+                    darkMode ? 'border-gray-600 bg-gray-700/30' : 'border-gray-200 bg-gray-50'
+                  }`}>
+                    <div className="flex items-center gap-2 mb-3">
+                      <Ban className={`w-5 h-5 ${darkMode ? 'text-orange-400' : 'text-orange-600'}`} />
+                      <h3 className={`text-lg font-bold ${darkMode ? 'text-gray-100' : 'text-gray-900'}`}>
+                        Email Blocklist
+                      </h3>
+                    </div>
+                    <p className={`text-sm mb-4 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      Blocked emails cannot request to join your company.
+                    </p>
+
+                    {/* Add email */}
+                    <div className="flex gap-2 mb-4">
+                      <input
+                        type="email"
+                        placeholder="email@example.com"
+                        value={newBlockEmail}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewBlockEmail(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleBlockEmail()}
+                        className={`flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 outline-none text-sm ${
+                          darkMode
+                            ? 'bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400'
+                            : 'bg-white border-gray-300 text-gray-900'
+                        }`}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleBlockEmail}
+                        className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition text-sm font-medium"
+                      >
+                        Block
+                      </button>
+                    </div>
+
+                    {/* Blocklist entries */}
+                    {blocklistLoading ? (
+                      <div className="flex items-center gap-2 py-2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-orange-500" />
+                        <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Loading blocklist...</span>
+                      </div>
+                    ) : blocklist.length === 0 ? (
+                      <p className={`text-sm text-center py-4 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                        No blocked emails
+                      </p>
+                    ) : (
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {blocklist.map((entry: any) => (
+                          <div key={entry.id} className={`flex items-center justify-between px-3 py-2 rounded-lg ${
+                            darkMode ? 'bg-gray-800' : 'bg-white border border-gray-200'
+                          }`}>
+                            <div>
+                              <span className={`text-sm font-mono ${darkMode ? 'text-gray-200' : 'text-gray-800'}`}>
+                                {entry.email}
+                              </span>
+                              <span className={`text-xs ml-2 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                {entry.createdAt ? new Date(entry.createdAt).toLocaleDateString() : ''}
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleUnblockEntry(entry.id)}
+                              className={`p-1.5 rounded transition ${
+                                darkMode ? 'text-red-400 hover:bg-gray-700' : 'text-red-500 hover:bg-red-50'
+                              }`}
+                              title="Unblock"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
 
               <div className={`mt-8 pt-8 border-t ${darkMode ? 'border-gray-700' : 'border-red-200'}`}>
                 <h3 className={`text-lg font-bold mb-4 ${darkMode ? 'text-red-400' : 'text-red-600'}`}>

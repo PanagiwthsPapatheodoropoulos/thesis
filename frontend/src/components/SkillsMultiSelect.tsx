@@ -9,6 +9,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { skillsAPI } from '../utils/api';
 import { X, Loader, Plus } from 'lucide-react';
+import { useToast } from '../components/Toast';
 import type { SkillsMultiSelectProps, Skill } from '../types';
 
 /**
@@ -29,6 +30,7 @@ const SkillsMultiSelect: React.FC<SkillsMultiSelectProps> = ({ selectedSkills = 
   const [loading, setLoading] = useState<boolean>(false);
   const [creating, setCreating] = useState<boolean>(false);
   const [deletedCustomSkills, setDeletedCustomSkills] = useState<string[]>([]);
+  const { showToast } = useToast();
   
   // Prevent infinite fetching with ref
   const hasFetchedSkills = useRef(false);
@@ -99,7 +101,7 @@ const SkillsMultiSelect: React.FC<SkillsMultiSelectProps> = ({ selectedSkills = 
 
     const cleanSkillName = searchTerm.trim();
     if (cleanSkillName.length < 2) {
-      alert('Skill name must be at least 2 characters');
+      showToast('Skill name must be at least 2 characters', 'warning');
       return;
     }
 
@@ -143,10 +145,10 @@ const SkillsMultiSelect: React.FC<SkillsMultiSelectProps> = ({ selectedSkills = 
           setSearchTerm('');
           setShowDropdown(false);
         } catch (fetchError) {
-          alert('Failed to add skill. Please try again.');
+          showToast('Failed to add skill. Please try again.', 'error');
         }
       } else {
-        alert('Failed to create skill: ' + error.message);
+        showToast('Failed to create skill: ' + error.message, 'error');
       }
     } finally {
       setCreating(false);

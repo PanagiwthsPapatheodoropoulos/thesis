@@ -1,6 +1,7 @@
 package com.thesis.smart_resource_planner.service;
 
 import com.thesis.smart_resource_planner.enums.NotificationSeverity;
+import com.thesis.smart_resource_planner.enums.NotificationType;
 import com.thesis.smart_resource_planner.exception.ResourceNotFoundException;
 import com.thesis.smart_resource_planner.model.dto.NotificationCreateDTO;
 import com.thesis.smart_resource_planner.model.dto.NotificationDTO;
@@ -31,12 +32,17 @@ import static org.mockito.Mockito.*;
 @DisplayName("NotificationService Coverage - Gap Tests")
 class NotificationServiceCoverageDedicatedTest {
 
-    @Mock private NotificationRepository notificationRepository;
-    @Mock private UserRepository userRepository;
-    @Mock private ModelMapper modelMapper;
-    @Mock private SimpMessagingTemplate messagingTemplate;
+    @Mock
+    private NotificationRepository notificationRepository;
+    @Mock
+    private UserRepository userRepository;
+    @Mock
+    private ModelMapper modelMapper;
+    @Mock
+    private SimpMessagingTemplate messagingTemplate;
 
-    @InjectMocks private NotificationService notificationService;
+    @InjectMocks
+    private NotificationService notificationService;
 
     private UUID userId;
     private UUID notificationId;
@@ -59,7 +65,7 @@ class NotificationServiceCoverageDedicatedTest {
     void createNotification_defaultSeverity() {
         NotificationCreateDTO createDTO = new NotificationCreateDTO();
         createDTO.setUserId(userId);
-        createDTO.setType("INFO");
+        createDTO.setType(NotificationType.TASK_ASSIGNED);
         createDTO.setTitle("Test");
         createDTO.setMessage("msg");
         createDTO.setSeverity(null);
@@ -67,9 +73,9 @@ class NotificationServiceCoverageDedicatedTest {
         Notification saved = new Notification();
         saved.setId(notificationId);
         saved.setUser(user);
-        saved.setType("INFO");
+        saved.setType(NotificationType.TASK_ASSIGNED);
         NotificationDTO dto = new NotificationDTO();
-        dto.setType("INFO");
+        dto.setType(NotificationType.TASK_ASSIGNED);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(notificationRepository.saveAndFlush(any(Notification.class))).thenReturn(saved);
@@ -85,7 +91,7 @@ class NotificationServiceCoverageDedicatedTest {
     void createNotification_broadcastFails_recovers() {
         NotificationCreateDTO createDTO = new NotificationCreateDTO();
         createDTO.setUserId(userId);
-        createDTO.setType("INFO");
+        createDTO.setType(NotificationType.TASK_ASSIGNED);
         createDTO.setTitle("Test");
         createDTO.setMessage("msg");
         createDTO.setSeverity(NotificationSeverity.INFO);
@@ -93,9 +99,9 @@ class NotificationServiceCoverageDedicatedTest {
         Notification saved = new Notification();
         saved.setId(notificationId);
         saved.setUser(user);
-        saved.setType("INFO");
+        saved.setType(NotificationType.TASK_ASSIGNED);
         NotificationDTO dto = new NotificationDTO();
-        dto.setType("INFO");
+        dto.setType(NotificationType.TASK_ASSIGNED);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(notificationRepository.saveAndFlush(any(Notification.class))).thenReturn(saved);

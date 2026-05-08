@@ -46,6 +46,7 @@ public class UserService {
     private final TaskRepository taskRepository;
     private final TaskPermissionRepository taskPermissionRepository;
     private final ModelMapper modelMapper;
+    private final BrevoEmailService brevoEmailService;
 
     /**
      * Retrieves a user by their unique identifier.
@@ -371,7 +372,7 @@ public class UserService {
             userRepository.flush(); // Final flush
 
         } catch (Exception e) {
-            throw new RuntimeException("Failed to delete user: " + e.getMessage(), e);
+            throw new IllegalStateException("Failed to delete user: " + e.getMessage(), e);
         }
     }
 
@@ -393,5 +394,42 @@ public class UserService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         user.setNotificationPreferences(preferencesJson);
         userRepository.save(user);
+    }
+
+    /**
+     * Soft-removes a user from their current company without deleting the account.
+     * The user's company and team associations are cleared, and their role is reset
+     * to USER. When the user next logs in, they will be directed to the company
+     * setup page where they can join a new company or create their own.
+     * Sends a dismissal email to inform the user.
+     *
+     * @param userId the UUID of the user to remove from the company
+     * @throws ResourceNotFoundException if the user does not exist
+     */
+    @Transactional
+    public void removeUserFromCompany(UUID userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + userId));
+
+        String companyName = user.getCompany() != null ? user.getCompany().getName() : null;
+        String email = user.getEmail();
+        String username = user.getUsername();
+
+        log.info("Removing user {} ({}) from company {}", username, userId,
+                companyName != null ? companyName : "none");
+
+        // Clear company and team associations
+        user.setCompany(null);
+        user.setTeam(null);
+        user.setRole(UserRole.USER);
+
+        userRepository.save(user);
+
+        // Send dismissal email (non-blocking)
+        try {
+            brevoEmailService.sendDismissalEmail(email, username, companyName);
+        } catch (Exception e) {
+            log.warn("Failed to send dismissal email to {}: {}", email, e.getMessage());
+        }
     }
 }

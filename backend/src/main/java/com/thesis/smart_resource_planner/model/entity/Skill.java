@@ -33,6 +33,7 @@ public class Skill {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    @Builder.Default
     @OneToMany(mappedBy = "skill", cascade = CascadeType.ALL)
     private List<EmployeeSkill> employeeSkills = new ArrayList<>();
 

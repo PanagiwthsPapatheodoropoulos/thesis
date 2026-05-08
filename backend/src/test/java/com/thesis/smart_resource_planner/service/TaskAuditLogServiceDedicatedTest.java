@@ -1,5 +1,6 @@
 package com.thesis.smart_resource_planner.service;
 
+import com.thesis.smart_resource_planner.enums.AuditAction;
 import com.thesis.smart_resource_planner.model.dto.TaskAuditLogDTO;
 import com.thesis.smart_resource_planner.model.entity.Task;
 import com.thesis.smart_resource_planner.model.entity.TaskAuditLog;
@@ -38,7 +39,7 @@ class TaskAuditLogServiceDedicatedTest {
     @DisplayName("logTaskAction swallows repository exceptions")
     void logTaskAction_swallowException() {
         doThrow(new RuntimeException("db")).when(auditLogRepository).save(any(TaskAuditLog.class));
-        service.logTaskAction(new Task(), new User(), "TASK_CREATED", "desc");
+        service.logTaskAction(new Task(), new User(), AuditAction.TASK_CREATED, "desc");
         verify(auditLogRepository).save(any(TaskAuditLog.class));
     }
 
@@ -49,7 +50,7 @@ class TaskAuditLogServiceDedicatedTest {
 
         TaskAuditLog log = TaskAuditLog.builder()
                 .id(UUID.randomUUID())
-                .action("FIELD_UPDATED")
+            .action(AuditAction.FIELD_UPDATED)
                 .description("d")
                 .createdAt(LocalDateTime.now())
                 .build();

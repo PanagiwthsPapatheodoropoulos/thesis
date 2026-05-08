@@ -1,9 +1,11 @@
 package com.thesis.smart_resource_planner.service;
 
 import com.thesis.smart_resource_planner.enums.NotificationSeverity;
+import com.thesis.smart_resource_planner.enums.NotificationType;
 import com.thesis.smart_resource_planner.exception.ResourceNotFoundException;
 import com.thesis.smart_resource_planner.model.dto.NotificationCreateDTO;
 import com.thesis.smart_resource_planner.model.dto.NotificationDTO;
+import com.thesis.smart_resource_planner.model.entity.Company;
 import com.thesis.smart_resource_planner.model.entity.Notification;
 import com.thesis.smart_resource_planner.model.entity.User;
 import com.thesis.smart_resource_planner.repository.NotificationRepository;
@@ -62,7 +64,7 @@ class NotificationServiceDedicatedTest {
 
         user = new User();
         user.setId(userId);
-        com.thesis.smart_resource_planner.model.entity.Company company = new com.thesis.smart_resource_planner.model.entity.Company();
+        Company company = new Company();
         company.setId(UUID.randomUUID());
         user.setCompany(company);
 
@@ -78,6 +80,7 @@ class NotificationServiceDedicatedTest {
         testNotificationDTO.setId(notificationId);
         testNotificationDTO.setTitle("Test Notification");
         testNotificationDTO.setMessage("This is a test notification");
+        testNotificationDTO.setType(NotificationType.TASK_ASSIGNED);
         ReflectionTestUtils.setField(notificationService, "self", notificationService);
     }
 
@@ -107,7 +110,7 @@ class NotificationServiceDedicatedTest {
     void testCreateNotification_Success() {
         NotificationCreateDTO createDTO = new NotificationCreateDTO();
         createDTO.setUserId(userId);
-        createDTO.setType("INFO");
+        createDTO.setType(NotificationType.TASK_ASSIGNED);
         createDTO.setTitle("Test Notification");
         createDTO.setMessage("This is a test notification");
         createDTO.setSeverity(NotificationSeverity.INFO);
@@ -187,12 +190,12 @@ class NotificationServiceDedicatedTest {
     void testCreateNotification_RolePromotionBroadcast() {
         NotificationCreateDTO createDTO = new NotificationCreateDTO();
         createDTO.setUserId(userId);
-        createDTO.setType("ROLE_PROMOTION");
+        createDTO.setType(NotificationType.ROLE_PROMOTION);
         createDTO.setTitle("Promoted");
         createDTO.setMessage("You are now manager");
         createDTO.setSeverity(NotificationSeverity.SUCCESS);
 
-        testNotification.setType("ROLE_PROMOTION");
+        testNotification.setType(NotificationType.ROLE_PROMOTION);
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(notificationRepository.saveAndFlush(any(Notification.class))).thenReturn(testNotification);
         when(modelMapper.map(testNotification, NotificationDTO.class)).thenReturn(testNotificationDTO);

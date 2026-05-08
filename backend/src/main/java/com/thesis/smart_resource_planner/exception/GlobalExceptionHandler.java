@@ -197,6 +197,53 @@ public class GlobalExceptionHandler {
         }
 
         /**
+         * Handles {@link IllegalStateException}, returning HTTP 409 Conflict.
+         * Thrown when a business rule prevents the requested operation
+         * (e.g., deleting a department that still has employees).
+         *
+         * @param ex      The illegal state exception.
+         * @param request The current web request.
+         * @return A structured {@link ErrorResponse} with 409 status.
+         */
+        @ExceptionHandler(IllegalStateException.class)
+        public ResponseEntity<ErrorResponse> handleIllegalStateException(
+                        IllegalStateException ex, WebRequest request) {
+
+                ErrorResponse errorResponse = ErrorResponse.builder()
+                                .timestamp(LocalDateTime.now())
+                                .status(HttpStatus.CONFLICT.value())
+                                .error(HttpStatus.CONFLICT.getReasonPhrase())
+                                .message(ex.getMessage())
+                                .path(request.getDescription(false).replace("uri=", ""))
+                                .build();
+
+                return new ResponseEntity<>(errorResponse, HttpStatus.CONFLICT);
+        }
+
+        /**
+         * Handles {@link IllegalArgumentException}, returning HTTP 400 Bad Request.
+         * Thrown when a method receives an argument that violates its contract.
+         *
+         * @param ex      The illegal argument exception.
+         * @param request The current web request.
+         * @return A structured {@link ErrorResponse} with 400 status.
+         */
+        @ExceptionHandler(IllegalArgumentException.class)
+        public ResponseEntity<ErrorResponse> handleIllegalArgumentException(
+                        IllegalArgumentException ex, WebRequest request) {
+
+                ErrorResponse errorResponse = ErrorResponse.builder()
+                                .timestamp(LocalDateTime.now())
+                                .status(HttpStatus.BAD_REQUEST.value())
+                                .error(HttpStatus.BAD_REQUEST.getReasonPhrase())
+                                .message(ex.getMessage())
+                                .path(request.getDescription(false).replace("uri=", ""))
+                                .build();
+
+                return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+        }
+
+        /**
          * Catch-all handler for any unhandled exception, returning HTTP 500 Internal
          * Server Error.
          * Uses a generic message to avoid leaking internal implementation details.

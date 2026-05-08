@@ -6,7 +6,7 @@
  */
 
 /** @constant {string} API_BASE - Base URL for all API requests */
-const API_BASE = "http://localhost:8080/api";
+const API_BASE = "/api";
 
 /** @type {number} profileImageVersion - Timestamp for cache-busting profile images */
 let profileImageVersion = Date.now();
@@ -48,7 +48,7 @@ export const getProfileImageUrl = (baseUrl: string | null): string | null => {
  * const headers = getAuthHeaders();
  * // { 'Content-Type': 'application/json', 'Authorization': 'Bearer eyJ...' }
  */
-const getAuthHeaders = (): Record<string, string> => {
+export const getAuthHeaders = (): Record<string, string> => {
   const token = localStorage.getItem("token");
   const companyId = localStorage.getItem("companyId");
 
@@ -59,20 +59,167 @@ const getAuthHeaders = (): Record<string, string> => {
   };
 };
 
+// ─────────────────────── JWT AUTO-REFRESH INTERCEPTOR ───────────────────────
+
+/** Tracks whether a token refresh is currently in progress. */
+let isRefreshing = false;
+
+/** Queue of callbacks waiting for a fresh access token. */
+let refreshQueue: Array<{ resolve: (token: string) => void; reject: (err: Error) => void }> = [];
+
+/**
+ * Processes queued requests that were waiting for a token refresh.
+ * Called after the refresh completes (or fails).
+ */
+const processRefreshQueue = (error: Error | null, token: string | null) => {
+  refreshQueue.forEach(({ resolve, reject }) => {
+    if (error) {
+      reject(error);
+    } else {
+      resolve(token!);
+    }
+  });
+  refreshQueue = [];
+};
+
+/**
+ * Attempts to refresh the access token using the stored refresh token.
+ * Returns the new access token, or null if refresh failed.
+ */
+const attemptTokenRefresh = async (): Promise<string | null> => {
+  const refreshToken = localStorage.getItem("refreshToken");
+  if (!refreshToken) return null;
+
+  try {
+    const response = await fetch(`${API_BASE}/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refreshToken }),
+    });
+
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    if (data.token) {
+      localStorage.setItem("token", data.token);
+      if (data.refreshToken) {
+        localStorage.setItem("refreshToken", data.refreshToken);
+      }
+      if (data.user) {
+        localStorage.setItem("user", JSON.stringify(data.user));
+      }
+      return data.token;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+};
+
 /**
  * Handles API response by checking status and parsing JSON content.
+ * If a 401 Unauthorized response is received, automatically attempts
+ * to refresh the JWT token and retry the original request. Concurrent
+ * 401 responses are queued to avoid multiple simultaneous refresh calls.
+ *
  * @async
  * @function handleResponse
  * @param {Response} response - The fetch Response object
+ * @param {string} [originalUrl] - The URL of the original request (for retry)
+ * @param {RequestInit} [originalOptions] - The options of the original request (for retry)
  * @returns {Promise<Object>} Parsed JSON response or empty object for non-JSON responses
  * @throws {Error} If response is not OK, with the error message from the server
- * @example
- * const data = await handleResponse(await fetch(url, options));
  */
-const handleResponse = async (response: Response): Promise<any> => {
+const handleResponse = async (
+  response: Response,
+  originalUrl?: string,
+  originalOptions?: RequestInit
+): Promise<any> => {
+  // --- 401 Auto-Refresh Logic ---
+  if (response.status === 401 && originalUrl && !originalUrl.includes("/auth/")) {
+    if (isRefreshing) {
+      // Another refresh is in progress — queue this request
+      return new Promise((resolve, reject) => {
+        refreshQueue.push({
+          resolve: async (newToken: string) => {
+            try {
+              const retryHeaders = {
+                ...originalOptions?.headers,
+                Authorization: `Bearer ${newToken}`,
+              } as Record<string, string>;
+              const retryResponse = await fetch(originalUrl, { ...originalOptions, headers: retryHeaders });
+              resolve(await handleResponse(retryResponse));
+            } catch (err) {
+              reject(err);
+            }
+          },
+          reject,
+        });
+      });
+    }
+
+    isRefreshing = true;
+    try {
+      const newToken = await attemptTokenRefresh();
+      if (newToken) {
+        processRefreshQueue(null, newToken);
+        // Retry the original request with the new token
+        const retryHeaders = {
+          ...originalOptions?.headers,
+          Authorization: `Bearer ${newToken}`,
+        } as Record<string, string>;
+        const retryResponse = await fetch(originalUrl, { ...originalOptions, headers: retryHeaders });
+        return handleResponse(retryResponse);
+      } else {
+        // Refresh failed — session expired, redirect to login
+        const error = new Error("Session expired. Please log in again.");
+        processRefreshQueue(error, null);
+        localStorage.clear();
+        sessionStorage.clear();
+        window.location.href = "/login";
+        throw error;
+      }
+    } finally {
+      isRefreshing = false;
+    }
+  }
+
+  // --- Standard response handling ---
   if (!response.ok) {
-    const error = await response.text();
-    throw new Error(error || `HTTP ${response.status}: ${response.statusText}`);
+    // Fallback 401 handler for calls without retry context
+    if (response.status === 401 && !originalUrl) {
+      const newToken = await attemptTokenRefresh();
+      if (!newToken) {
+        localStorage.clear();
+        sessionStorage.clear();
+        window.location.href = "/login";
+        throw new Error("Session expired. Please log in again.");
+      }
+      // Token refreshed but we can't retry without original URL — caller should retry
+      throw new Error("TOKEN_REFRESHED");
+    }
+    const errorText = await response.text();
+    let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+    try {
+      if (errorText) {
+        const errorJson = JSON.parse(errorText);
+        if (errorJson.validationErrors && Object.keys(errorJson.validationErrors).length > 0) {
+          const validationMsgs = Object.entries(errorJson.validationErrors)
+            .map(([field, msg]) => `${field}: ${msg}`)
+            .join(', ');
+          errorMessage = `${errorJson.message || 'Validation failed'}: ${validationMsgs}`;
+        } else if (errorJson.message) {
+          errorMessage = errorJson.message;
+        } else if (errorJson.error) {
+          errorMessage = errorJson.error;
+        } else {
+          errorMessage = errorText;
+        }
+      }
+    } catch (e) {
+      errorMessage = errorText || errorMessage;
+    }
+    throw new Error(errorMessage);
   }
   // For DELETE requests or other responses with no content
   const contentType = response.headers.get("content-type");
@@ -80,6 +227,20 @@ const handleResponse = async (response: Response): Promise<any> => {
     return response.json();
   }
   return {}; // Return empty object for non-JSON responses
+};
+
+/**
+ * Wrapper around fetch that integrates with the JWT auto-refresh interceptor.
+ * Passes the original URL and options to handleResponse so that 401 responses
+ * can trigger a transparent token refresh and request retry.
+ *
+ * @param url - The URL to fetch
+ * @param options - Standard fetch RequestInit options
+ * @returns Promise resolving to the parsed response
+ */
+const fetchWithAuth = async (url: string, options: RequestInit = {}): Promise<any> => {
+  const response = await fetch(url, options);
+  return handleResponse(response, url, options);
 };
 
 /**
@@ -192,6 +353,19 @@ export const usersAPI = {
     }).then(handleResponse),
 
   /**
+   * Updates a user's username.
+   * @param {string} id - User ID.
+   * @param {string} username - New username.
+   * @returns {Promise<Object>} Updated user.
+   */
+  updateUsername: (id, username) =>
+    fetch(`${API_BASE}/users/${id}/username`, {
+      method: "PATCH",
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ username }),
+    }).then(handleResponse),
+
+  /**
    * Permanently deletes a user account.
    * @param {string} id - User ID to remove.
    * @returns {Promise<void>}
@@ -202,6 +376,20 @@ export const usersAPI = {
       headers: getAuthHeaders(),
     }).then((response) => {
       if (!response.ok) throw new Error("Failed to delete user");
+    }),
+
+  /**
+   * Soft-removes a user from their company without deleting the account.
+   * The user can later join another company or create their own.
+   * @param {string} id - User ID to remove from company.
+   * @returns {Promise<void>}
+   */
+  removeFromCompany: (id: string) =>
+    fetch(`${API_BASE}/users/${id}/remove-from-company`, {
+      method: "PATCH",
+      headers: getAuthHeaders(),
+    }).then((response) => {
+      if (!response.ok) throw new Error("Failed to remove user from company");
     }),
 };
 
@@ -579,6 +767,9 @@ export const employeesAPI = {
     if (filters.search && filters.search.trim()) {
       params.append("search", filters.search.trim());
     }
+    if (filters.role) {
+      params.append("role", filters.role);
+    }
 
     return fetch(`${API_BASE}/employees/paginated?${params}`, {
       headers: getAuthHeaders(),
@@ -637,6 +828,15 @@ export const employeesAPI = {
     console.warn("Unexpected skills response format:", data);
     return [];
   },
+
+  /**
+   * Retrieves all manager-role employees for the current company.
+   * @returns {Promise<Array>} Manager employee records.
+   */
+  getManagers: () =>
+    fetch(`${API_BASE}/employees/managers`, { headers: getAuthHeaders() }).then(
+      handleResponse,
+    ),
 
   /**
    * Retrieves workload statistics for all employees.
@@ -1146,6 +1346,47 @@ export const aiAPI = {
       method: "POST",
       headers: getAuthHeaders(),
       body: JSON.stringify(tasks),
+    }).then(handleResponse),
+};
+
+// Companies
+/** @namespace companiesAPI */
+export const companiesAPI = {
+  /** Returns the company of the currently logged-in user (includes joinCode for admins). */
+  getMyCompany: () =>
+    fetch(`${API_BASE}/companies/my-company`, { headers: getAuthHeaders() }).then(handleResponse),
+
+  /** Regenerate the join code for a company (admin only). */
+  regenerateJoinCode: (companyId: string) =>
+    fetch(`${API_BASE}/companies/${companyId}/regenerate-code`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    }).then(handleResponse),
+};
+
+// Company Blocklist
+/**
+ * Per-company email blocklist API (admin/manager only).
+ * @namespace blocklistAPI
+ */
+export const blocklistAPI = {
+  /** Fetch all blocked emails for current company. */
+  getAll: () =>
+    fetch(`${API_BASE}/blocklist`, { headers: getAuthHeaders() }).then(handleResponse),
+
+  /** Block an email address. */
+  block: (email: string) =>
+    fetch(`${API_BASE}/blocklist`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ email }),
+    }).then(handleResponse),
+
+  /** Remove a block by entry ID. */
+  unblock: (id: string) =>
+    fetch(`${API_BASE}/blocklist/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
     }).then(handleResponse),
 };
 

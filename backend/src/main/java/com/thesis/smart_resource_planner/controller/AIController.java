@@ -146,23 +146,31 @@ public class AIController {
             @RequestHeader("Authorization") String authHeader) {
         try {
             String token = authHeader.replace("Bearer ", "");
-            String taskIdStr = (String) request.get("taskId");
-            UUID taskId;
+            Object taskIdValue = request.get("taskId");
+            String taskId = taskIdValue != null ? taskIdValue.toString() : null;
 
-            // Generate temporary ID if none provided to satisfy service contract
-            try {
-                taskId = UUID.fromString(taskIdStr);
-            } catch (IllegalArgumentException e) {
-                taskId = UUID.randomUUID();
+            if (taskId == null || taskId.isBlank()) {
+                taskId = UUID.randomUUID().toString();
+            }
+
+            List<String> requiredSkillIds = List.of();
+            Object skillIdsValue = request.get("requiredSkillIds");
+            if (skillIdsValue instanceof List<?>) {
+                @SuppressWarnings("unchecked")
+                List<Object> rawSkillIds = (List<Object>) skillIdsValue;
+                requiredSkillIds = rawSkillIds.stream()
+                        .map(String::valueOf)
+                        .toList();
             }
 
             // Invoke prediction engine
-            Map<String, Object> prediction = aiServiceClient.predictTaskDuration(
+                Map<String, Object> prediction = aiServiceClient.predictTaskDuration(
                     taskId,
+                    (String) request.get("description"),
                     (String) request.get("priority"),
                     request.get("complexityScore") != null ? ((Number) request.get("complexityScore")).doubleValue()
                             : 0.5,
-                    (List<String>) request.get("requiredSkillIds"),
+                    requiredSkillIds,
                     token,
                     currentUser.getCompanyId());
 
@@ -300,14 +308,14 @@ public class AIController {
      */
     @PostMapping("/feedback/retrain")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Map> triggerRetraining(
+    public ResponseEntity<Map<String, Object>> triggerRetraining(
             @RequestParam(defaultValue = "false") Boolean fullRetrain,
             @AuthenticationPrincipal UserPrincipal currentUser,
             @RequestHeader("Authorization") String authHeader) {
         try {
             String token = authHeader.replace("Bearer ", "");
 
-            Map result = aiServiceClient.triggerRetraining(
+            Map<String, Object> result = aiServiceClient.triggerRetraining(
                     fullRetrain,
                     token,
                     currentUser.getCompanyId());
@@ -327,12 +335,12 @@ public class AIController {
      */
     @GetMapping("/feedback/model-info")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<Map> getModelInfo(
+    public ResponseEntity<Map<String, Object>> getModelInfo(
             @AuthenticationPrincipal UserPrincipal currentUser) {
         UUID companyId = currentUser.getCompanyId();
 
         // Hardcoded metadata reflecting the current system deployment state
-        Map info = Map.of(
+        Map<String, Object> info = Map.of(
                 "companyId", companyId.toString(),
                 "modelVersion", "v1.0-hybrid-ensemble",
                 "components", List.of(

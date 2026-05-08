@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../components/Toast';
 
 
 /**
@@ -39,6 +40,7 @@ const SuperAdminDashboardPage = () => {
   
   const { logout } = useAuth();
   const navigate = useNavigate();
+  const { showToast } = useToast();
 
   useEffect(() => {
     fetchCompanies();
@@ -67,7 +69,7 @@ const SuperAdminDashboardPage = () => {
       const data = await response.json();
       setCompanies(data);
     } catch (error: any) {
-      alert('Failed to load companies');
+      showToast('Failed to load companies', 'error');
     } finally {
       setLoading(false);
     }
@@ -127,7 +129,7 @@ const SuperAdminDashboardPage = () => {
       setActiveView('company-detail');
       setViewAllTasks(false); // Reset view state when opening a company
     } catch (error: any) {
-      alert('Failed to load company details: ' + error.message);
+      showToast('Failed to load company details: ' + error.message, 'error');
     } finally {
       setLoading(false);
     }
@@ -148,7 +150,7 @@ const SuperAdminDashboardPage = () => {
       
       if (!response.ok) throw new Error('Failed to delete company');
       
-      alert(`Company "${companyToDelete.name}" deleted successfully`);
+      showToast(`Company "${companyToDelete.name}" deleted successfully`, 'success');
       setShowDeleteModal(false);
       setCompanyToDelete(null);
       
@@ -160,7 +162,7 @@ const SuperAdminDashboardPage = () => {
       
       fetchCompanies();
     } catch (error: any) {
-      alert('Failed to delete company: ' + error.message);
+      showToast('Failed to delete company: ' + error.message, 'error');
     }
   };
 
@@ -193,7 +195,7 @@ const SuperAdminDashboardPage = () => {
       }
 
     } catch (error: any) {
-      alert('Failed to update company status');
+      showToast('Failed to update company status', 'error');
     }
   };
 

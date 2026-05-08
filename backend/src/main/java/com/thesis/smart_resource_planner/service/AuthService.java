@@ -2,6 +2,7 @@
 package com.thesis.smart_resource_planner.service;
 
 import com.thesis.smart_resource_planner.enums.UserRole;
+import com.thesis.smart_resource_planner.exception.BadRequestException;
 import com.thesis.smart_resource_planner.exception.ResourceNotFoundException;
 import com.thesis.smart_resource_planner.exception.DuplicateResourceException;
 import com.thesis.smart_resource_planner.model.dto.*;
@@ -11,6 +12,9 @@ import com.thesis.smart_resource_planner.model.entity.User;
 import com.thesis.smart_resource_planner.repository.UserRepository;
 import com.thesis.smart_resource_planner.repository.EmployeeRepository;
 import com.thesis.smart_resource_planner.security.JwtTokenProvider;
+import com.thesis.smart_resource_planner.enums.NotificationType;
+import com.thesis.smart_resource_planner.enums.NotificationSeverity;
+import com.thesis.smart_resource_planner.enums.EntityType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
@@ -26,6 +30,7 @@ import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.time.LocalDate;
+import java.util.List;
 
 
 /**
@@ -46,6 +51,9 @@ public class AuthService {
     private final JwtTokenProvider tokenProvider;
     private final ModelMapper modelMapper;
     private final CompanyService companyService;
+    private final NotificationService notificationService;
+    private final BrevoEmailService brevoEmailService;
+    private final CompanyBlocklistService blocklistService;
 
     @Value("${ADMIN_KEY_SECRET}")
     private String ADMIN_KEY;
@@ -75,10 +83,14 @@ public class AuthService {
         user.setLastLogin(LocalDateTime.now());
         userRepository.save(user);
 
+        // Generate refresh token for seamless session renewal
+        String refreshToken = tokenProvider.generateRefreshToken(user.getUsername());
+
         UserDTO userDTO = modelMapper.map(user, UserDTO.class);
 
         return LoginResponseDTO.builder()
                 .token(token)
+                .refreshToken(refreshToken)
                 .tokenType("Bearer")
                 .user(userDTO)
                 .build();
@@ -86,7 +98,7 @@ public class AuthService {
 
     /**
      * Registers a new company along with its initial admin user and employee
-     * profile.
+     * profile. Sends a welcome email with the join code via Brevo.
      *
      * @param dto DTO containing company and admin details.
      * @return CompanyRegistrationResponseDTO with company info and join code.
@@ -125,6 +137,17 @@ public class AuthService {
             log.warn("Failed to create admin employee profile: {}", e.getMessage());
         }
 
+        // 4. Send welcome email with join code via Brevo (async, non-blocking)
+        try {
+            brevoEmailService.sendCompanyWelcomeEmail(
+                    dto.getAdminEmail(),
+                    dto.getAdminUsername(),
+                    company.getName(),
+                    company.getJoinCode());
+        } catch (Exception e) {
+            log.warn("Failed to send company welcome email: {}", e.getMessage());
+        }
+
         return CompanyRegistrationResponseDTO.builder()
                 .companyId(company.getId())
                 .companyName(company.getName())
@@ -136,9 +159,7 @@ public class AuthService {
 
     /**
      * Registers a new regular user or manager within an existing or default
-     * company.
-     * Automatically creates an employee profile if the elevated permissions are
-     * provided via keys.
+     * company. Checks the company blocklist before allowing registration.
      *
      * @param registrationDTO DTO containing user registration details and optional
      *                        admin key/company code.
@@ -159,6 +180,11 @@ public class AuthService {
         if (StringUtils.hasText(registrationDTO.getCompanyCode())) {
             // Join existing company
             company = companyService.findByJoinCode(registrationDTO.getCompanyCode());
+
+            // Check if email is blocked from this company
+            if (blocklistService.isBlocked(company.getId(), registrationDTO.getEmail())) {
+                throw new BadRequestException("Your email address has been blocked from joining this company.");
+            }
         } else {
             // Assign to default company
             company = companyService.getDefaultCompany();
@@ -207,6 +233,38 @@ public class AuthService {
                 employeeRepository.save(employee);
             } catch (Exception e) {
                 log.error("Failed to auto-create employee profile: {}", e.getMessage());
+            }
+        } else if (role == UserRole.USER && StringUtils.hasText(registrationDTO.getCompanyCode())) {
+            // Send JOIN_REQUEST notification to Admins and Managers
+            try {
+                List<User> adminsAndManagers = userRepository.findByRoleAndCompanyId(UserRole.ADMIN, company.getId());
+                adminsAndManagers.addAll(userRepository.findByRoleAndCompanyId(UserRole.MANAGER, company.getId()));
+
+                for (User adminOrManager : adminsAndManagers) {
+                    NotificationCreateDTO notification = new NotificationCreateDTO();
+                    notification.setUserId(adminOrManager.getId());
+                    notification.setType(NotificationType.JOIN_REQUEST);
+                    notification.setTitle("🔔 New Join Request");
+                    notification.setMessage(String.format(
+                            "User '%s' (%s) is waiting for approval to join your company. Review their request in the Employees page.",
+                            savedUser.getUsername(), savedUser.getEmail()));
+                    notification.setSeverity(NotificationSeverity.INFO);
+                    notification.setRelatedEntityType(EntityType.EMPLOYEE);
+
+                    notificationService.createNotification(notification);
+                }
+            } catch (Exception e) {
+                log.error("Failed to send join request notification: {}", e.getMessage());
+            }
+
+            // Send confirmation email to the user
+            try {
+                brevoEmailService.sendJoinRequestConfirmation(
+                        savedUser.getEmail(),
+                        savedUser.getUsername(),
+                        company.getName());
+            } catch (Exception e) {
+                log.warn("Failed to send join request confirmation email: {}", e.getMessage());
             }
         }
 

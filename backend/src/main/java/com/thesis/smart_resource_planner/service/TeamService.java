@@ -1,9 +1,11 @@
 package com.thesis.smart_resource_planner.service;
 
 import com.thesis.smart_resource_planner.enums.NotificationSeverity;
+import com.thesis.smart_resource_planner.enums.NotificationType;
 import com.thesis.smart_resource_planner.enums.UserRole;
 import com.thesis.smart_resource_planner.exception.DuplicateResourceException;
 import com.thesis.smart_resource_planner.exception.ResourceNotFoundException;
+import com.thesis.smart_resource_planner.exception.UnauthorizedException;
 import com.thesis.smart_resource_planner.model.dto.*;
 import com.thesis.smart_resource_planner.model.entity.ChatMessage;
 import com.thesis.smart_resource_planner.model.entity.Team;
@@ -38,7 +40,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-@Transactional
+@Transactional(readOnly = true)
 public class TeamService {
 
     private final TeamRepository teamRepository;
@@ -347,6 +349,7 @@ public class TeamService {
      *                                                                               not
      *                                                                               exist
      */
+    @Transactional
     public void addMemberToTeam(UUID teamId, UUID userId) {
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new ResourceNotFoundException("Team not found"));
@@ -359,7 +362,7 @@ public class TeamService {
         try {
             NotificationCreateDTO notification = new NotificationCreateDTO();
             notification.setUserId(userId);
-            notification.setType("TEAM_ASSIGNMENT");
+            notification.setType(NotificationType.TEAM_ASSIGNMENT);
             notification.setTitle("Added to Team");
             notification.setMessage("You have been added to the team: " + team.getName());
             notification.setSeverity(NotificationSeverity.INFO);
@@ -393,6 +396,7 @@ public class TeamService {
      *                                                                               specified
      *                                                                               team
      */
+    @Transactional
     public void removeMemberFromTeam(UUID teamId, UUID userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
@@ -409,7 +413,7 @@ public class TeamService {
         try {
             NotificationCreateDTO notification = new NotificationCreateDTO();
             notification.setUserId(userId);
-            notification.setType("TEAM_REMOVAL");
+            notification.setType(NotificationType.TEAM_REMOVAL);
             notification.setTitle("Removed from Team");
             notification.setMessage("You have been removed from the team: " + teamName);
             notification.setSeverity(NotificationSeverity.WARNING);
@@ -443,6 +447,7 @@ public class TeamService {
      *                                                                                existing
      *                                                                                team
      */
+    @Transactional
     public TeamDTO updateTeam(UUID id, TeamDTO teamDTO) {
         Team team = teamRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Team not found"));
@@ -490,6 +495,7 @@ public class TeamService {
      *                                                                               user's
      *                                                                               company
      */
+    @Transactional
     public void deleteTeam(UUID id, UUID userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
@@ -499,7 +505,7 @@ public class TeamService {
 
         // Verify the team belongs to the user's company
         if (!team.getCompany().getId().equals(user.getCompany().getId())) {
-            throw new SecurityException("Not authorized to delete this team");
+            throw new UnauthorizedException("Not authorized to delete this team");
         }
 
         // Remove team association from all users

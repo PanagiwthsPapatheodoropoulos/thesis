@@ -30,10 +30,12 @@ Example:
     }
 """
 
-from fastapi import APIRouter, HTTPException, Header
+from fastapi import APIRouter, HTTPException, Header, Request
 from typing import List, Optional
 import logging
 from pydantic import BaseModel
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from app.models.skill_extractor import SkillExtractor, SkillCategory
 from app.core.redis_client import redis_client
@@ -41,6 +43,7 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+limiter = Limiter(key_func=get_remote_address)
 
 # Initialize the core extraction engine (SentenceTransformers) at module startup
 skill_extractor = SkillExtractor()
@@ -169,8 +172,10 @@ class SkillSuggestionsResponse(BaseModel):
 
 # ENDPOINTS
 @router.post("/extract", response_model=SkillExtractionResponse)
+@limiter.limit("15/minute")
 async def extract_skills_from_task(
-    request: SkillExtractionRequest,
+    request: Request,
+    extraction_request: SkillExtractionRequest,
     authorization: str = Header(...),
     x_company_id: str = Header(...)
 ):
@@ -220,16 +225,16 @@ async def extract_skills_from_task(
     
     try:
         # Check cache
-        cache_key = f"skills:extract:{hash(request.task_title + request.task_description)}"
+        cache_key = f"skills:extract:{hash(extraction_request.task_title + extraction_request.task_description)}"
         cached = await redis_client.get(x_company_id, cache_key)
         if cached:
             return cached
         
         # Extract skills
         extracted = skill_extractor.extract_skills(
-            title=request.task_title,
-            description=request.task_description,
-            min_confidence=request.min_confidence
+            title=extraction_request.task_title,
+            description=extraction_request.task_description,
+            min_confidence=extraction_request.min_confidence
         )
         
         # Convert to DTOs

@@ -4,19 +4,22 @@ api/analytics.py - Real-time Analytics with Proper Cache Busting.
 This module provides endpoints for generating productivity metrics, employee performance
 rankings, and skill-based insights using data from the core backend.
 """
-from fastapi import APIRouter, Header
+from fastapi import APIRouter, Header, Request
 from typing import List, Optional
 import logging
 from pydantic import BaseModel, Field
 from datetime import datetime, timedelta
 import numpy as np
 import re
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from app.core.backend_client import backend_client
 from app.core.redis_client import redis_client
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+limiter = Limiter(key_func=get_remote_address)
 
 # ============================================================
 # MODELS
@@ -153,8 +156,10 @@ def parse_date(date_str: Optional[str]) -> Optional[datetime]:
 
 # MAIN ENDPOINT
 @router.post("/productivity", response_model=AnalyticsResponse)
+@limiter.limit("10/minute")
 async def get_productivity_analytics(
-    request: AnalyticsRequest,
+    request: Request,
+    analytics_request: AnalyticsRequest,
     authorization: str = Header(...),
     x_company_id: str = Header(...)
 ):
@@ -174,9 +179,9 @@ async def get_productivity_analytics(
     token = authorization.replace("Bearer ", "")
     
     # Attempt to retrieve from cache to ensure low latency for frequent dashboard views
-    cache_key = f"analytics:v2:{request.time_period_days}d"
+    cache_key = f"analytics:v2:{analytics_request.time_period_days}d"
     
-    if not request.bust_cache:
+    if not analytics_request.bust_cache:
         cached = await redis_client.get(x_company_id, cache_key)
         if cached:
             # Ensure the response has a valid timestamp even when served from cache
@@ -206,7 +211,7 @@ async def get_productivity_analytics(
         )
         
         # Calculate time horizon based on request parameters
-        cutoff_date = datetime.now() - timedelta(days=request.time_period_days)
+        cutoff_date = datetime.now() - timedelta(days=analytics_request.time_period_days)
         
         # Filtering tasks to only include those relevant to the current analytical period
         recent_tasks = []
@@ -267,7 +272,7 @@ async def get_productivity_analytics(
         }
         
         # Update Redis cache with the newly computed report
-        cache_ttl = 60 if not request.bust_cache else 30
+        cache_ttl = 60 if not analytics_request.bust_cache else 30
         await redis_client.set(
             x_company_id,
             cache_key,

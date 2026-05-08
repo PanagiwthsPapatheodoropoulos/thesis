@@ -1,6 +1,7 @@
 package com.thesis.smart_resource_planner.service;
 
 import com.thesis.smart_resource_planner.enums.UserRole;
+import com.thesis.smart_resource_planner.enums.WorkloadStatus;
 import com.thesis.smart_resource_planner.enums.TaskAssignmentStatus;
 import com.thesis.smart_resource_planner.enums.TaskStatus;
 import com.thesis.smart_resource_planner.exception.ResourceNotFoundException;
@@ -117,11 +118,11 @@ class EmployeeServiceDedicatedTest {
         var pageable = PageRequest.of(0, 10);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(requester));
-        when(employeeRepository.findByCompanyIdWithFiltersNative(eq(company.getId()), any(), any(), any(),
-                eq(pageable)))
+        when(employeeRepository.findByCompanyIdWithFiltersNative(eq(company.getId()), eq(UserRole.EMPLOYEE.name()), any(), any(), any(),
+            eq(pageable)))
                 .thenReturn(org.springframework.data.domain.Page.empty(pageable));
 
-        var page = employeeService.getEmployeesPaginated(userId, pageable, null, null, null);
+        var page = employeeService.getEmployeesPaginated(userId, pageable, null, null, null, null);
         assertTrue(page.isEmpty());
         verify(employeeSkillRepository, never()).findByEmployeeIdIn(anyList());
     }
@@ -149,13 +150,13 @@ class EmployeeServiceDedicatedTest {
 
         var pageable = PageRequest.of(0, 10);
         when(userRepository.findById(userId)).thenReturn(Optional.of(requester));
-        when(employeeRepository.findByCompanyIdWithFiltersNative(eq(company.getId()), any(), any(), any(),
-                eq(pageable)))
+        when(employeeRepository.findByCompanyIdWithFiltersNative(eq(company.getId()), eq(UserRole.EMPLOYEE.name()), any(), any(), any(),
+            eq(pageable)))
                 .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(employee), pageable, 1));
         when(employeeSkillRepository.findByEmployeeIdIn(anyList())).thenReturn(List.of());
         when(modelMapper.map(eq(employee), eq(EmployeeDTO.class))).thenReturn(dto);
 
-        var page = employeeService.getEmployeesPaginated(userId, pageable, null, null, null);
+        var page = employeeService.getEmployeesPaginated(userId, pageable, null, null, null, null);
         assertEquals(1, page.getContent().size());
         assertNull(page.getContent().get(0).getHourlyRate());
     }
@@ -485,7 +486,7 @@ class EmployeeServiceDedicatedTest {
         assertEquals(1, workloads.size());
         assertEquals(1, workloads.get(0).getActiveTasks());
         assertEquals(1, workloads.get(0).getCompletedTasks());
-        assertEquals("OPTIMAL", workloads.get(0).getStatus());
+        assertEquals(WorkloadStatus.OPTIMAL, workloads.get(0).getStatus());
     }
 
     @Test
@@ -514,7 +515,7 @@ class EmployeeServiceDedicatedTest {
         EmployeeDTO mapped = new EmployeeDTO();
         mapped.setId(saved.getId());
 
-        when(employeeRepository.findByUserId(userId)).thenReturn(Optional.of(orphan), Optional.empty());
+        when(employeeRepository.findByUserId(userId)).thenReturn(Optional.of(orphan)).thenReturn(Optional.empty());
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(employeeRepository.saveAndFlush(any(Employee.class))).thenReturn(saved);
         when(modelMapper.map(saved, EmployeeDTO.class)).thenReturn(mapped);
@@ -632,12 +633,12 @@ class EmployeeServiceDedicatedTest {
 
         var pageable = PageRequest.of(0, 10);
         when(userRepository.findById(userId)).thenReturn(Optional.of(requester));
-        when(employeeRepository.findByCompanyIdWithFiltersNative(company.getId(), "ENG", "DEV", "jo", pageable))
+        when(employeeRepository.findByCompanyIdWithFiltersNative(company.getId(), UserRole.EMPLOYEE.name(), "ENG", "DEV", "%jo%", pageable))
                 .thenReturn(new PageImpl<>(List.of(employee), pageable, 1));
         when(employeeSkillRepository.findByEmployeeIdIn(List.of(employeeId))).thenReturn(List.of());
         when(modelMapper.map(employee, EmployeeDTO.class)).thenReturn(mapped);
 
-        var page = employeeService.getEmployeesPaginated(userId, pageable, "ENG", "DEV", "jo");
+        var page = employeeService.getEmployeesPaginated(userId, pageable, "ENG", "DEV", "jo", null);
         assertEquals(1, page.getContent().size());
         assertEquals(BigDecimal.valueOf(55), page.getContent().get(0).getHourlyRate());
     }
@@ -693,7 +694,6 @@ class EmployeeServiceDedicatedTest {
         when(skillRepository.findById(skillId)).thenReturn(Optional.of(skill));
         when(employeeSkillRepository.findByEmployeeIdAndSkillId(employeeId, skillId)).thenReturn(Optional.empty());
         when(employeeSkillRepository.saveAndFlush(any(EmployeeSkill.class))).thenReturn(saved);
-        when(employeeSkillRepository.existsById(saved.getId())).thenReturn(true);
 
         EmployeeSkillDTO result = employeeService.addSkillToEmployee(employeeId, input);
         assertNotNull(result.getId());

@@ -132,7 +132,12 @@ describe("DepartmentsPage coverage", () => {
     fireEvent.change(screen.getByPlaceholderText("e.g., Engineering, Marketing"), { target: { value: "Fail Dept" } });
     fireEvent.click(screen.getByText("Create Department", { selector: 'button' }));
     
-    await waitFor(() => expect(window.alert).toHaveBeenCalledWith("Error creating department: Failed"));
+    await waitFor(() =>
+      expect((globalThis as any).__showToast).toHaveBeenCalledWith(
+        "Error creating department: Failed",
+        "error",
+      ),
+    );
   });
 
   it("handles department deletion", async () => {
@@ -161,7 +166,12 @@ describe("DepartmentsPage coverage", () => {
     const deleteButtons = document.querySelectorAll('.text-red-600');
     fireEvent.click(deleteButtons[0]);
     
-    await waitFor(() => expect(window.alert).toHaveBeenCalledWith("Error deleting department: Delete failed"));
+    await waitFor(() =>
+      expect((globalThis as any).__showToast).toHaveBeenCalledWith(
+        "Error deleting department: Delete failed",
+        "error",
+      ),
+    );
   });
 
   it("filters departments by search", async () => {

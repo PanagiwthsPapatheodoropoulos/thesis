@@ -21,6 +21,7 @@ import {
 import { tasksAPI, taskCommentsAPI, taskTimeAPI, employeesAPI,taskAuditAPI } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { useToast } from '../components/Toast';
 // FIX: Removed EVENT_TYPES from import to break circular dependency
 import { useWebSocket } from '../contexts/WebSocketProvider';
 import type { TaskDetailsModalProps, Task, TaskAssignment, Employee } from '../types';
@@ -53,14 +54,17 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClo
     const [comments, setComments] = useState<any[]>([]);
     const [auditLogs, setAuditLogs] = useState<any[]>([]);
     const { darkMode } = useTheme();
+    const { showToast } = useToast();
     const [timeEntries, setTimeEntries] = useState<any[]>([]);
     const [newComment, setNewComment] = useState<string>('');
+    const [commentError, setCommentError] = useState<string | null>(null);
     const [newTimeEntry, setNewTimeEntry] = useState({
         hoursSpent: '',
         workDate: new Date().toISOString().split('T')[0],
         description: ''
     });
     const [loading, setLoading] = useState<boolean>(false);
+    const [loadError, setLoadError] = useState<string | null>(null);
     const [totalHours, setTotalHours] = useState<number>(0);
     const commentsEndRef = useRef<any>(null);
 
@@ -116,6 +120,7 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClo
         try {
             // Only set loading on first load or manual refresh, not RT updates to prevent flicker
             if (!taskData.description) setLoading(true); 
+            setLoadError(null);
 
             // Parallel fetch for better performance
             const [fetchedTask, fetchedComments, fetchedLogs, fetchedTime] = await Promise.all([
@@ -136,6 +141,7 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClo
 
         } catch (error: any) {
             console.error("Error fetching task details:", error);
+            setLoadError('Unable to load task details. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -149,9 +155,13 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClo
      */
     const handleAddComment = async (e) => {
         e.preventDefault();
-        if (!newComment.trim()) return;
+        if (!newComment.trim()) {
+            setCommentError('Please enter a comment before posting.');
+            return;
+        }
 
         try {
+            setCommentError(null);
             await taskCommentsAPI.create({
                 taskId: task.id,
                 comment: newComment
@@ -160,7 +170,7 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClo
             setNewComment('');
             await fetchTaskDetails();
         } catch (error: any) {
-            alert('Error adding comment: ' + error.message);
+            showToast('Error adding comment: ' + error.message, 'error');
         }
     };
 
@@ -176,7 +186,7 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClo
             await taskCommentsAPI.delete(commentId);
             await fetchTaskDetails();
         } catch (error: any) {
-            alert('Error deleting comment: ' + error.message);
+            showToast('Error deleting comment: ' + error.message, 'error');
         }
     };
 
@@ -190,7 +200,7 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClo
     const handleAddTimeEntry = async (e) => {
         e.preventDefault();
         if (!newTimeEntry.hoursSpent || parseFloat(newTimeEntry.hoursSpent) <= 0) {
-            alert('Please enter valid hours');
+            showToast('Please enter valid hours', 'warning');
             return;
         }
 
@@ -199,7 +209,7 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClo
             try {
                 await employeesAPI.getByUserId(user.id);
             } catch (error: any) {
-                alert('You need an employee profile to log time. Contact an administrator.');
+                showToast('You need an employee profile to log time. Contact an administrator.', 'warning');
                 return;
             }
 
@@ -218,7 +228,7 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClo
             
             await fetchTaskDetails();
         } catch (error: any) {
-            alert('Error logging time: ' + error.message);
+            showToast('Error logging time: ' + error.message, 'error');
         }
     };
 
@@ -235,7 +245,7 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClo
             if (onTaskUpdate) onTaskUpdate?.(undefined as any);
         
         } catch (error: any) {
-            alert('Error updating status: ' + error.message);
+            showToast('Error updating status: ' + error.message, 'error');
         }
     };
 
@@ -422,6 +432,14 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClo
                         </div>
                     ) : (
                         <>
+                            {loadError && (
+                                <div className={`mb-4 border-2 rounded-lg p-3 flex items-start gap-2 ${
+                                    darkMode ? 'bg-red-900/20 border-red-700 text-red-200' : 'bg-red-50 border-red-200 text-red-800'
+                                }`}>
+                                    <AlertCircle className={`w-4 h-4 mt-0.5 ${darkMode ? 'text-red-300' : 'text-red-600'}`} />
+                                    <p className="text-sm">{loadError}</p>
+                                </div>
+                            )}
                             {/* DETAILS TAB */}
                             {activeTab === "details" && (
                                 <div className="space-y-6">
@@ -577,7 +595,10 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClo
                                     }`}>
                                         <textarea
                                             value={newComment}
-                                            onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setNewComment(e.target.value)}
+                                            onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+                                                setNewComment(e.target.value);
+                                                if (commentError) setCommentError(null);
+                                            }}
                                             placeholder="Add a comment..."
                                             className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none resize-none ${
                                                 darkMode
@@ -586,6 +607,11 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClo
                                             }`}
                                             rows={3}
                                         />
+                                        {commentError && (
+                                            <p className={`mt-2 text-sm ${darkMode ? 'text-red-300' : 'text-red-600'}`}>
+                                                {commentError}
+                                            </p>
+                                        )}
                                         <div className="flex justify-end mt-2">
                                             <button
                                                 type="submit"

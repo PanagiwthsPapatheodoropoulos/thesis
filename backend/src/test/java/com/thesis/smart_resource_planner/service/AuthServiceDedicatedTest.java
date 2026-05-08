@@ -19,6 +19,7 @@ import org.modelmapper.ModelMapper;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.util.ArrayList;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -36,6 +37,9 @@ class AuthServiceDedicatedTest {
     @Mock private com.thesis.smart_resource_planner.security.JwtTokenProvider tokenProvider;
     @Mock private ModelMapper modelMapper;
     @Mock private CompanyService companyService;
+    @Mock private NotificationService notificationService;
+    @Mock private BrevoEmailService brevoEmailService;
+    @Mock private CompanyBlocklistService blocklistService;
 
     @InjectMocks private AuthService authService;
 
@@ -149,12 +153,15 @@ class AuthServiceDedicatedTest {
         dto.setCompanyCode("JOIN123");
 
         Company company = new Company();
+        company.setId(UUID.randomUUID());
         when(userRepository.existsByUsername("user2")).thenReturn(false);
         when(userRepository.existsByEmail("u2@x.com")).thenReturn(false);
         when(passwordEncoder.encode("pw")).thenReturn("enc");
         when(companyService.findByJoinCode("JOIN123")).thenReturn(company);
+        when(blocklistService.isBlocked(any(UUID.class), eq("u2@x.com"))).thenReturn(false);
         when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
         when(modelMapper.map(any(User.class), eq(UserDTO.class))).thenReturn(new UserDTO());
+        when(userRepository.findByRoleAndCompanyId(any(), any())).thenReturn(new ArrayList<>());
 
         authService.register(dto);
 
@@ -162,4 +169,3 @@ class AuthServiceDedicatedTest {
         verify(companyService, never()).getDefaultCompany();
     }
 }
-

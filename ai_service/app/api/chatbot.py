@@ -6,15 +6,18 @@ capability summaries. It implements strict context-aware prompt engineering to
 ensure security and relevance.
 """
 
-from fastapi import APIRouter, HTTPException, Header
+from fastapi import APIRouter, HTTPException, Header, Request
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any
 import requests
 import logging
 import os
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+limiter = Limiter(key_func=get_remote_address)
 
 # External LLM service configuration
 OLLAMA_URL = os.getenv("OLLAMA_HOST")
@@ -90,8 +93,76 @@ CAPABILITY_PHRASES = [
     'what can i do', 'what do i have', 'what features', 'what is available',
     'show me what', 'guide me', 'what are my options', 'capabilities',
     'what can the app', 'what does this app', 'overview', 'summarize',
-    'explain the app', 'how does this work', 'tell me what', 'what access'
+    'explain the app', 'how does this work', 'tell me what', 'what access',
+    'help me', 'how do i', 'where can i', 'show me how',
+    'navigate to', 'find the', 'how to use', 'tutorial',
+    'what should i', 'getting started', 'instructions'
 ]
+
+# Detailed app feature knowledge for contextual assistance
+APP_FEATURES = {
+    'tasks': (
+        "Tasks page: Create, assign, and track tasks through their lifecycle. "
+        "Use status filters (PENDING, IN_PROGRESS, COMPLETED, BLOCKED, CANCELLED). "
+        "Employees can submit task requests that need manager/admin approval. "
+        "Click a task to see details, comments, time logs, and audit history."
+    ),
+    'assignments': (
+        "AI Assignment: Open a task → click 'Get AI Suggestions'. "
+        "The AI ranks employees by skill match (40%), workload capacity (25%), "
+        "experience alignment (15%), adaptability (10%), and priority fit (10%). "
+        "Each suggestion includes a fit score, confidence, and detailed reasoning."
+    ),
+    'analytics': (
+        "Analytics page: View team productivity metrics including completion rates, "
+        "on-time delivery percentage, average task duration, and skill utilization. "
+        "Use the 'Bust Cache' button to force-refresh data. "
+        "Available to ADMIN and MANAGER roles only."
+    ),
+    'workload': (
+        "Workload page: See employee utilization levels. "
+        "UNDERLOADED = below 50%%, OPTIMAL = 50-85%%, OVERLOADED = above 85%%. "
+        "Filter by status to find available team members for new assignments."
+    ),
+    'teams': (
+        "Teams page: Create teams, add or remove members. "
+        "Each team has a shared chat channel. "
+        "Team-based task assignments notify all team members."
+    ),
+    'chat': (
+        "Chat: Direct messages between employees and team group chats. "
+        "Real-time messaging via WebSocket. "
+        "Unread message counts shown in the navigation badge."
+    ),
+    'predictions': (
+        "AI Predictions: Get duration estimates for tasks based on complexity, "
+        "priority, required skills, and historical completion data. "
+        "Includes confidence intervals showing the estimated range."
+    ),
+    'skills': (
+        "Skills: AI extracts skills from task descriptions automatically. "
+        "Employees manage their own skill profiles with proficiency levels (1-5). "
+        "Skills are matched during AI assignment to find the best fit."
+    ),
+    'employees': (
+        "Employees page: View all employee profiles, their departments, "
+        "positions, skills, and workload. Admin can create new employee profiles "
+        "for existing users, which promotes them from USER to EMPLOYEE role."
+    ),
+    'departments': (
+        "Departments page: Organize employees into departments like Engineering, "
+        "Marketing, Sales. Admin can create and delete departments."
+    ),
+    'notifications': (
+        "Notifications: Real-time alerts for task assignments, status changes, "
+        "approvals, rejections, team updates, and deadline reminders. "
+        "Click the bell icon to view and mark notifications as read."
+    ),
+    'dashboard': (
+        "Dashboard: Overview of your tasks, recent activity, and key metrics. "
+        "Quick access to pending items and notifications."
+    ),
+}
 
 
 def build_prompt(role: str, username: str, page: str, query: str) -> str:
@@ -124,12 +195,23 @@ def build_prompt(role: str, username: str, page: str, query: str) -> str:
             f"Question: {query}\nAnswer:"
         )
     else:
+        # Build page-specific context hint
+        page_lower = page.lower() if page else ''
+        page_tip = ''
+        for feature_key, feature_desc in APP_FEATURES.items():
+            if feature_key in page_lower or feature_key in query_lower:
+                page_tip = f"\nRelevant feature info: {feature_desc}\n"
+                break
+
         # Standard assistance prompt
         return (
-            f"You are a helpful assistant. User: {username}, role: {role}, page: {page}.\n"
-            f"Their access summary: {access}\n\n"
-            f"Answer this question in plain English, max 60 words. "
+            f"You are a helpful assistant for the Smart Resource Planner app. "
+            f"User: {username}, role: {role}, page: {page}.\n"
+            f"Their access summary: {access}\n"
+            f"{page_tip}\n"
+            f"Answer this question in plain English, max 80 words. "
             f"If they ask about something they cannot do, say so and tell them who to contact. "
+            f"If they ask how to do something, give specific step-by-step instructions. "
             f"No marketing language. Use 'you can' not 'we'.\n\n"
             f"Question: {query}\nAnswer:"
         )
@@ -140,8 +222,10 @@ def build_prompt(role: str, username: str, page: str, query: str) -> str:
 # ============================================================
 
 @router.post("/query", response_model=ChatResponse)
+@limiter.limit("15/minute")
 async def query_chatbot(
-    request: ChatRequest,
+    request: Request,
+    chat_request: ChatRequest,
     x_company_id: Optional[str] = Header(None),
     authorization: Optional[str] = Header(None)
 ):
@@ -159,11 +243,11 @@ async def query_chatbot(
     """
     try:
         # Extract context variables for prompt tailoring
-        role = request.context.get('role', 'USER')
-        page = request.context.get('page', 'dashboard')
-        username = request.context.get('username', 'there')
+        role = chat_request.context.get('role', 'USER')
+        page = chat_request.context.get('page', 'dashboard')
+        username = chat_request.context.get('username', 'there')
 
-        prompt = build_prompt(role, username, page, request.query)
+        prompt = build_prompt(role, username, page, chat_request.query)
 
         # Configure Ollama parameters for reproducible, fast responses
         ollama_payload = {

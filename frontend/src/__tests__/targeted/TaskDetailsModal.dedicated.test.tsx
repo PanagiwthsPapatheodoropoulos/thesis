@@ -179,7 +179,12 @@ describe("TaskDetailsModal additional coverage", () => {
     fireEvent.change(textarea, { target: { value: "failing comment" } });
     fireEvent.submit(textarea.closest("form"));
 
-    await waitFor(() => expect(window.alert).toHaveBeenCalled());
+    await waitFor(() =>
+      expect((globalThis as any).__showToast).toHaveBeenCalledWith(
+        expect.stringContaining("Error adding comment"),
+        "error",
+      ),
+    );
   });
 
   it("COMPLETED task shows no status action buttons", async () => {
@@ -231,7 +236,10 @@ describe("TaskDetailsModal additional coverage", () => {
     fireEvent.change(numberInput, { target: { value: "-1" } });
     fireEvent.submit(numberInput.closest("form"));
 
-    expect(window.alert).toHaveBeenCalled();
+    expect((globalThis as any).__showToast).toHaveBeenCalledWith(
+      "Please enter valid hours",
+      "warning",
+    );
     expect(mocks.logTime).not.toHaveBeenCalled();
   });
 });

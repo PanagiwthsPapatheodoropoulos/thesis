@@ -1,6 +1,8 @@
 package com.thesis.smart_resource_planner.service;
 
+import com.thesis.smart_resource_planner.enums.UserRole;
 import com.thesis.smart_resource_planner.enums.*;
+import com.thesis.smart_resource_planner.exception.BadRequestException;
 import com.thesis.smart_resource_planner.exception.ResourceNotFoundException;
 import com.thesis.smart_resource_planner.model.dto.*;
 import com.thesis.smart_resource_planner.model.entity.*;
@@ -41,7 +43,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-@Transactional
+@Transactional(readOnly = true)
 public class EmployeeService {
 
     private final EmployeeRepository employeeRepository;
@@ -54,7 +56,7 @@ public class EmployeeService {
     private final TaskAssignmentRepository taskAssignmentRepository;
     private final TaskRepository taskRepository;
     private final SimpMessagingTemplate messagingTemplate;
-    private final WebSocketBroadcastService broadcastService;
+    private final BrevoEmailService brevoEmailService;
 
     /**
      * Creates an employee profile for the given user, handling orphaned
@@ -92,7 +94,7 @@ public class EmployeeService {
                     // Retry creation after cleanup
                     return createEmployeeInternal(createDTO);
                 } catch (Exception e) {
-                    throw new RuntimeException("Cannot create employee: orphaned record exists and cleanup failed");
+                    throw new BadRequestException("Cannot create employee: orphaned record exists and cleanup failed");
                 }
             }
 
@@ -146,7 +148,7 @@ public class EmployeeService {
                     try {
                         NotificationCreateDTO notification = new NotificationCreateDTO();
                         notification.setUserId(finalUser.getId());
-                        notification.setType("ROLE_PROMOTION");
+                        notification.setType(NotificationType.ROLE_PROMOTION);
                         notification.setTitle("🎉 You've been promoted to Employee!");
                         notification.setMessage(
                                 "An administrator has created an employee profile for you. Please log out and log back in to access all employee features.");
@@ -157,6 +159,18 @@ public class EmployeeService {
                         notificationService.createNotification(notification);
                     } catch (Exception e) {
                         log.warn("Failed to send role promotion notification: {}", e.getMessage());
+                    }
+
+                    // Send approval email
+                    try {
+                        String companyName = finalUser.getCompany() != null
+                                ? finalUser.getCompany().getName() : "your company";
+                        brevoEmailService.sendEmployeeApprovedEmail(
+                                finalUser.getEmail(),
+                                finalUser.getUsername(),
+                                companyName);
+                    } catch (Exception e) {
+                        log.warn("Failed to send employee approval email: {}", e.getMessage());
                     }
                 }
             });
@@ -328,7 +342,8 @@ public class EmployeeService {
 
             int availableHours = (int) Math.max(0, maxHours - hoursUsed);
 
-            String status = workload < 50 ? "UNDERLOADED" : workload <= 85 ? "OPTIMAL" : "OVERLOADED";
+            WorkloadStatus status = workload < 50 ? WorkloadStatus.UNDERLOADED
+                    : workload <= 85 ? WorkloadStatus.OPTIMAL : WorkloadStatus.OVERLOADED;
 
             return EmployeeWorkloadDTO.builder()
                     .employeeId(emp.getId())
@@ -341,7 +356,7 @@ public class EmployeeService {
                     .availableHours(availableHours)
                     .status(status)
                     .build();
-                }).collect(Collectors.toCollection(ArrayList::new));
+        }).collect(Collectors.toCollection(ArrayList::new));
     }
 
     /**
@@ -531,23 +546,31 @@ public class EmployeeService {
      * @param department optional department filter
      * @param position   optional position filter
      * @param search     optional free-text search
+     * @param role       optional role filter (e.g. EMPLOYEE, MANAGER)
      * @return a {@link Page} of {@link EmployeeDTO} objects
      */
     @Transactional(readOnly = true)
     public Page<EmployeeDTO> getEmployeesPaginated(UUID userId, Pageable pageable,
-            String department, String position, String search) {
+            String department, String position, String search, UserRole role) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         boolean canViewSalary = user.getRole() == UserRole.ADMIN || user.getRole() == UserRole.MANAGER;
         UUID companyId = user.getCompany().getId();
 
-        // Use NATIVE query with ILIKE for case-insensitive search
+        // Use the specified role or default to EMPLOYEE
+        String targetRole = (role == null) ? UserRole.EMPLOYEE.name() : role.name();
+
+        // Wrap search term with wildcards for ILIKE query
+        String searchPattern = (search != null) ? "%" + search + "%" : null;
+
+        // Use native SQL query with ILIKE for case-insensitive search
         Page<Employee> employeePage = employeeRepository.findByCompanyIdWithFiltersNative(
                 companyId,
+                targetRole,
                 department,
                 position,
-                search,
+                searchPattern,
                 pageable);
 
         if (employeePage.isEmpty()) {
@@ -581,7 +604,6 @@ public class EmployeeService {
 
         // Map to DTOs
         List<EmployeeDTO> employeeDTOs = employeePage.getContent().stream()
-                .filter(employee -> employee.getUser().getRole() == UserRole.EMPLOYEE)
                 .map(employee -> {
                     EmployeeDTO dto = modelMapper.map(employee, EmployeeDTO.class);
                     dto.setSkills(employeeSkillsMap.getOrDefault(employee.getId(), List.of()));
@@ -703,9 +725,6 @@ public class EmployeeService {
         // Use saveAndFlush to ensure immediate persistence
         EmployeeSkill saved = employeeSkillRepository.saveAndFlush(employeeSkill);
 
-        // Verify it was saved
-        boolean exists = employeeSkillRepository.existsById(saved.getId());
-
         // Map to DTO with full skill information
         EmployeeSkillDTO resultDTO = new EmployeeSkillDTO();
         resultDTO.setId(saved.getId());
@@ -739,6 +758,7 @@ public class EmployeeService {
             @CacheEvict(value = "employee", key = "#employeeId"),
             @CacheEvict(value = "employees", allEntries = true)
     })
+    @Transactional
     public void removeSkillFromEmployee(UUID employeeId, UUID skillId) {
         EmployeeSkill employeeSkill = employeeSkillRepository
                 .findByEmployeeIdAndSkillId(employeeId, skillId)
@@ -761,6 +781,7 @@ public class EmployeeService {
      *                                                                               not
      *                                                                               exist
      */
+    @Transactional
     public EmployeeAvailabilityDTO setEmployeeAvailability(EmployeeAvailabilityDTO availabilityDTO) {
         Employee employee = employeeRepository.findById(availabilityDTO.getEmployeeId())
                 .orElseThrow(() -> new ResourceNotFoundException("Employee not found"));
@@ -841,6 +862,7 @@ public class EmployeeService {
             @CacheEvict(value = "employees", allEntries = true),
             @CacheEvict(value = "employeeWorkload", allEntries = true)
     })
+    @Transactional
     public EmployeeDTO updateEmployee(UUID id, EmployeeCreateDTO updateDTO) {
 
         Employee employee = employeeRepository.findById(id)
@@ -926,11 +948,32 @@ public class EmployeeService {
             @CacheEvict(value = "employees", allEntries = true),
             @CacheEvict(value = "employeeWorkload", allEntries = true)
     })
+    @Transactional
     public void deleteEmployee(UUID id) {
         if (!employeeRepository.existsById(id)) {
             throw new ResourceNotFoundException("Employee not found");
         }
 
         employeeRepository.deleteById(id);
+    }
+
+    /**
+     * Returns all manager-role employees in the requesting user's company.
+     *
+     * @param userId UUID of the requesting user
+     * @return list of {@link EmployeeDTO} objects for MANAGER-role users
+     */
+    @Transactional(readOnly = true)
+    public List<EmployeeDTO> getAllManagers(UUID userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        UUID companyId = user.getCompany().getId();
+
+        List<Employee> managers = employeeRepository.findManagersByCompanyId(companyId);
+
+        return managers.stream()
+                .map(employee -> modelMapper.map(employee, EmployeeDTO.class))
+                .collect(Collectors.toCollection(ArrayList::new));
     }
 }

@@ -49,6 +49,7 @@ public class AnomalyDetection {
     @Column(name = "detected_at", nullable = false)
     private LocalDateTime detectedAt;
 
+    @Builder.Default
     @Column
     private Boolean resolved = false;
 

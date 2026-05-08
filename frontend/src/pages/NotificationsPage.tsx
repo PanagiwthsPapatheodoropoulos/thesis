@@ -28,6 +28,7 @@ const NotificationsPage = () => {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [filter, setFilter] = useState('ALL');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
@@ -40,12 +41,13 @@ const NotificationsPage = () => {
    */
   const fetchNotifications = useCallback(async () => {
     if (!user?.id) return;
-    
+    setErrorMessage(null);
     try {
       const data = await notificationsAPI.getByUser(user.id);
       setNotifications(data);
     } catch (error: any) {
       console.error('Error fetching notifications:', error);
+      setErrorMessage('Unable to load notifications. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -100,6 +102,7 @@ const NotificationsPage = () => {
    * @returns {Promise<void>}
    */
   const handleMarkAsRead = async (id) => {
+    setErrorMessage(null);
     try {      
       // Optimistic update
       setNotifications(prev => 
@@ -109,6 +112,7 @@ const NotificationsPage = () => {
       await notificationsAPI.markAsRead(id);
       
     } catch (error: any) {
+      setErrorMessage('Unable to mark this notification as read. Please try again.');
       fetchNotifications();
     }
   };
@@ -121,6 +125,7 @@ const NotificationsPage = () => {
    * @returns {Promise<void>}
    */
   const handleMarkAllAsRead = async () => {
+    setErrorMessage(null);
     try {      
       // Optimistic update
       const now = new Date().toISOString();
@@ -129,6 +134,7 @@ const NotificationsPage = () => {
       await notificationsAPI.markAllAsRead(user.id);
       
     } catch (error: any) {
+      setErrorMessage('Unable to mark all notifications as read. Please try again.');
       fetchNotifications();
     }
   };
@@ -239,6 +245,15 @@ const NotificationsPage = () => {
           )}
         </div>
       </div>
+
+        {errorMessage && (
+          <div className={`border-2 rounded-lg p-4 flex items-start gap-3 ${
+            darkMode ? 'bg-red-900/20 border-red-700 text-red-200' : 'bg-red-50 border-red-200 text-red-800'
+          }`}>
+            <AlertTriangle className={`w-5 h-5 mt-0.5 ${darkMode ? 'text-red-300' : 'text-red-600'}`} />
+            <p className="text-sm">{errorMessage}</p>
+          </div>
+        )}
 
       {/* Filters */}
       <div className="flex gap-4">

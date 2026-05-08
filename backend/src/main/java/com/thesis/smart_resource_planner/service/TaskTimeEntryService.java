@@ -113,7 +113,7 @@ public class TaskTimeEntryService {
             return mapToDTO(saved);
 
         } catch (Exception e) {
-            throw new RuntimeException("Failed to log time: " + e.getMessage());
+            throw new IllegalStateException("Failed to log time: " + e.getMessage(), e);
         }
     }
 

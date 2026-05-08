@@ -36,7 +36,7 @@ const LoginPage = () => {
     
     try {
       const data = await authAPI.login(credentials);
-      login(data.user, data.token);
+      login(data.user, data.token, data.refreshToken);
       navigate('/dashboard');
     } catch (err: any) {
       setError('Invalid credentials. Please try again.');

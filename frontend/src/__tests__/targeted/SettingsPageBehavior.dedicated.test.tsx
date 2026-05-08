@@ -85,7 +85,10 @@ describe("SettingsPage behavior", () => {
     fireEvent.change(inputs[2], { target: { value: "different" } });
     fireEvent.click(screen.getByText("Update Password"));
 
-    expect(window.alert).toHaveBeenCalledWith("Passwords do not match!");
+    expect((globalThis as any).__showToast).toHaveBeenCalledWith(
+      "Passwords do not match!",
+      "warning",
+    );
   });
 
   it("saves preferences to localStorage", async () => {
@@ -119,7 +122,10 @@ describe("SettingsPage behavior", () => {
     fireEvent.change(inputs[1], { target: { value: "short" } });
     fireEvent.change(inputs[2], { target: { value: "short" } });
     fireEvent.click(screen.getByText("Update Password"));
-    expect(window.alert).toHaveBeenCalledWith("Password must be at least 8 characters!");
+    expect((globalThis as any).__showToast).toHaveBeenCalledWith(
+      "Password must be at least 8 characters!",
+      "warning",
+    );
   });
 
   it("saves notification settings to local storage", async () => {

@@ -12,6 +12,7 @@ import SkillRadarChart from '../components/SkillRadarChart';
 import { useAuth } from '../contexts/AuthContext';
 import EmployeeProductivityChart from '../components/EmployeeProductivityChart';
 import { incrementProfileImageVersion } from '../utils/api';
+import { useToast } from '../components/Toast';
 import type { Employee, EmployeeSkill } from '../types';
 
 /**
@@ -26,6 +27,7 @@ const ProfilePage = () => {
   const { user, login,logout } = useAuth();
   const { darkMode } = useTheme();
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
   const [employee, setEmployee] = useState<any>(null);
@@ -149,13 +151,13 @@ const ProfilePage = () => {
             throw new Error('Failed to update username');
           }
           
-          alert('Username updated successfully! Please log in again with your new username.');
+          showToast('Username updated successfully! Please log in again with your new username.', 'info');
           logout();
           navigate('/login');
           return;
           
         } catch (error: any) {
-          alert('Error updating username: ' + error.message);
+          showToast('Error updating username: ' + error.message, 'error');
           setSaving(false);
           return;
         }
@@ -200,12 +202,12 @@ const ProfilePage = () => {
         }
       }));
 
-      alert('Profile updated successfully!');
+      showToast('Profile updated successfully!', 'success');
 
       await fetchProfile();
       
     } catch (error: any) {
-      alert('Error updating profile: ' + error.message);
+      showToast('Error updating profile: ' + error.message, 'error');
     } finally {
       setSaving(false);
     }

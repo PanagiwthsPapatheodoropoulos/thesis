@@ -77,7 +77,12 @@ describe("TeamsPage dedicated", () => {
     const nameInput = document.querySelector('input[type="text"][required]');
     if (nameInput) fireEvent.change(nameInput, { target: { value: "Backend Team" } });
     fireEvent.click(screen.getByText("Create Team"));
-    await waitFor(() => expect(window.alert).toHaveBeenCalledWith(expect.stringContaining("Error creating team")));
+    await waitFor(() =>
+      expect((globalThis as any).__showToast).toHaveBeenCalledWith(
+        expect.stringContaining("Error creating team"),
+        "error",
+      ),
+    );
   });
 
   it("renders no-available-employees message in add member modal", async () => {

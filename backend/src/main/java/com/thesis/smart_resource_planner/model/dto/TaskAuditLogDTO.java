@@ -1,5 +1,7 @@
 package com.thesis.smart_resource_planner.model.dto;
 
+import com.thesis.smart_resource_planner.enums.AuditAction;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -17,7 +19,7 @@ public class TaskAuditLogDTO {
     private UUID taskId;
     private UUID userId;
     private String userName;
-    private String action;
+    private AuditAction action;
     private String fieldName;
     private String oldValue;
     private String newValue;

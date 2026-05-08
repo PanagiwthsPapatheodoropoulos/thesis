@@ -5,7 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.GenericGenerator;
+import org.hibernate.annotations.UuidGenerator;
 import java.time.LocalDate;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -20,8 +20,8 @@ import java.util.UUID;
 public class EmployeeAvailability {
 
     @Id
-    @GeneratedValue(generator = "UUID")
-    @GenericGenerator(name = "UUID", strategy = "org.hibernate.id.UUIDGenerator")
+    @GeneratedValue
+    @UuidGenerator
     @Column(updatable = false, nullable = false)
     private UUID id;
 
@@ -33,9 +33,11 @@ public class EmployeeAvailability {
     private LocalDate date;
 
     @Column(name = "available_hours", precision = 5, scale = 2)
+    @Builder.Default
     private BigDecimal availableHours = BigDecimal.valueOf(8.0);
 
     @Column(name = "is_available")
+    @Builder.Default
     private Boolean isAvailable = true;
 
     @Column(columnDefinition = "TEXT")

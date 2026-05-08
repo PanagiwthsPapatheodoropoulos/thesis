@@ -42,7 +42,6 @@ class TaskRepositoryTest {
         Company company = Company.builder()
                 .name("Task Co")
                 .joinCode("TASK01")
-                .subscriptionTier("BASIC")
                 .isActive(true)
                 .build();
         savedCompany = companyRepository.save(company);

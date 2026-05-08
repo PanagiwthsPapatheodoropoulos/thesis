@@ -10,7 +10,7 @@
 export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'MANAGER' | 'EMPLOYEE' | 'USER';
 
 /** Task lifecycle status matching backend TaskStatus. */
-export type TaskStatus = 'PENDING' | 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE' | 'COMPLETED' | 'BLOCKED' | 'CANCELLED' | 'ARCHIVED';
+export type TaskStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'BLOCKED' | 'CANCELLED';
 
 /** Task priority levels matching backend TaskPriority. */
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
@@ -23,6 +23,15 @@ export type AssignedByType = 'MANUAL' | 'AI' | 'SYSTEM';
 
 /** Notification severity matching backend NotificationSeverity. */
 export type NotificationSeverity = 'INFO' | 'WARNING' | 'ERROR' | 'SUCCESS';
+
+/** Notification type matching backend NotificationType enum. */
+export type NotificationType =
+  | 'TASK_ASSIGNED' | 'TASK_REQUEST' | 'TASK_APPROVED' | 'TASK_REJECTED'
+  | 'TASK_STATUS_CHANGED' | 'TASK_COMPLETED' | 'DEADLINE_REMINDER'
+  | 'TEAM_ASSIGNMENT' | 'TEAM_REMOVAL' | 'TEAM_UPDATE' | 'ROLE_PROMOTION';
+
+/** Employee workload status matching backend WorkloadStatus enum. */
+export type WorkloadStatus = 'UNDERLOADED' | 'OPTIMAL' | 'OVERLOADED';
 
 /** Chat message type matching backend MessageType. */
 export type MessageType = 'TEXT' | 'FILE' | 'SYSTEM';
@@ -431,7 +440,7 @@ export interface AuthContextType {
   token: string | null;
   loading: boolean;
   authReady: boolean;
-  login: (userData: User, authToken: string) => void;
+  login: (userData: User, authToken: string, refreshToken?: string) => void;
   logout: () => void;
   updateUser: (updatedData: Partial<User>) => void;
 }

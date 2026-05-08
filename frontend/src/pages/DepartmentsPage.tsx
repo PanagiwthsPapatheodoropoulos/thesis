@@ -8,6 +8,7 @@ import { Building2, Users, Search, ChevronDown, ChevronUp, Plus, X, Trash2, User
 import { departmentsAPI } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { useToast } from '../components/Toast';
 import type { Employee } from '../types';
 
 /**
@@ -21,6 +22,7 @@ import type { Employee } from '../types';
 const DepartmentsPage = () => {
   const { user } = useAuth();
   const { darkMode } = useTheme();
+  const { showToast } = useToast();
   const [departments, setDepartments] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -80,7 +82,7 @@ const DepartmentsPage = () => {
       setFormData({ name: '', description: '' });
       fetchDepartments();
     } catch (error: any) {
-      alert('Error creating department: ' + error.message);
+      showToast('Error creating department: ' + error.message, 'error');
     }
   };
 
@@ -98,7 +100,7 @@ const DepartmentsPage = () => {
         await departmentsAPI.delete(name);
         fetchDepartments();
       } catch (error: any) {
-        alert('Error deleting department: ' + error.message);
+        showToast('Error deleting department: ' + error.message, 'error');
       }
     }
   };

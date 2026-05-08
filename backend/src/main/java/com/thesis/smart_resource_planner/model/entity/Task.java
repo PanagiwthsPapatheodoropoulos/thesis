@@ -8,7 +8,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.GenericGenerator;
+import org.hibernate.annotations.UuidGenerator;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -32,8 +32,8 @@ import java.util.UUID;
 public class Task {
 
     @Id
-    @GeneratedValue(generator = "UUID")
-    @GenericGenerator(name = "UUID", strategy = "org.hibernate.id.UUIDGenerator")
+    @GeneratedValue
+    @UuidGenerator
     @Column(updatable = false, nullable = false)
     private UUID id;
 
@@ -45,10 +45,12 @@ public class Task {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
+    @Builder.Default
     private TaskStatus status = TaskStatus.PENDING;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
+    @Builder.Default
     private TaskPriority priority = TaskPriority.MEDIUM;
 
     @Column(name = "estimated_hours", precision = 10, scale = 2)
@@ -74,6 +76,7 @@ public class Task {
     private String predictionModelVersion;
 
     @Column(name = "feedback_submitted")
+    @Builder.Default
     private Boolean feedbackSubmitted = false;
 
     @Column(name = "feedback_quality_score", precision = 3, scale = 2)
@@ -81,9 +84,11 @@ public class Task {
 
     // Optional: Track task modifications that affect feedback quality
     @Column(name = "scope_change_count")
+    @Builder.Default
     private Integer scopeChangeCount = 0;
 
     @Column(name = "reassignment_count")
+    @Builder.Default
     private Integer reassignmentCount = 0;
 
     @Column(name = "task_category", length = 50)
@@ -113,22 +118,28 @@ public class Task {
     private BigDecimal complexityScore; // 0-1
 
     @Column(name = "is_employee_request")
+    @Builder.Default
     private Boolean isEmployeeRequest = false;
 
     @Column(name = "is_archived")
+    @Builder.Default
     private Boolean isArchived = false;
 
     // Requires approval flag
     @Column(name = "requires_approval")
+    @Builder.Default
     private Boolean requiresApproval = false;
 
     @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private List<TaskAssignment> assignments = new ArrayList<>();
 
     @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private List<TaskPrediction> predictions = new ArrayList<>();
 
     @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private List<TaskRequiredSkill> requiredSkills = new ArrayList<>();
 
     @Column(name = "created_at", nullable = false, updatable = false)

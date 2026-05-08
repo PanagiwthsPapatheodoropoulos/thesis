@@ -25,7 +25,7 @@ import type { TaskDurationPredictorProps, DurationPrediction } from '../types';
  * @param {boolean}  [props.darkMode=false]         - Whether to render in dark mode.
  * @returns {JSX.Element} The prediction widget.
  */
-const TaskDurationPredictorComponent: React.FC<TaskDurationPredictorProps> = ({ taskData, onPredictionReceived, darkMode }) => {
+const TaskDurationPredictorComponent: React.FC<TaskDurationPredictorProps & { description?: string }> = ({ taskData, onPredictionReceived, darkMode, description }) => {
   const [loading, setLoading] = useState<boolean>(false);
   const [prediction, setPrediction] = useState<DurationPrediction | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -45,22 +45,38 @@ const TaskDurationPredictorComponent: React.FC<TaskDurationPredictorProps> = ({ 
     setError(null);
 
     try {
-      // Generate a temporary UUID for prediction ONLY
-      const tempTaskId = `preview-${taskData.priority}-${taskData.complexityScore}-${taskData.requiredSkillIds.length}`;
+      const requiredSkillIds = taskData.requiredSkillIds ?? [];
+      const complexityScore = typeof taskData.complexityScore === 'number'
+        ? taskData.complexityScore
+        : 0.5;
 
+      // Generate a temporary ID for prediction ONLY
+      const tempTaskId = `preview-${taskData.priority}-${complexityScore}-${requiredSkillIds.length}`;
 
       const data = await aiAPI.predictDuration({
         taskId: tempTaskId,
+        description: description || '',
         priority: taskData.priority,
-        complexityScore: taskData.complexityScore || 0.5,
-        requiredSkillIds: taskData.requiredSkillIds || []
+        complexityScore,
+        requiredSkillIds
       });
 
-      setPrediction(data);
-      if (data?.predicted_hours && typeof data.predicted_hours === 'number') {
-        onPredictionReceived?.(data.predicted_hours);
+      if (data && typeof data === 'object' && 'error' in data) {
+        setPrediction(null);
+        setError(String((data as { error?: string }).error || 'Prediction failed'));
+        return;
       }
+
+      if (!data || typeof data.predicted_hours !== 'number') {
+        setPrediction(null);
+        setError('Prediction not available');
+        return;
+      }
+
+      setPrediction(data);
+      onPredictionReceived?.(data.predicted_hours);
     } catch (err: any) {
+      setPrediction(null);
       setError(err.message || 'Prediction failed');
     } finally {
       setLoading(false);

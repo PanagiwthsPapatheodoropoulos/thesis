@@ -1,6 +1,15 @@
 // @ts-nocheck
 import "@testing-library/jest-dom/vitest";
-import { vi } from "vitest";
+import { vi, beforeEach } from "vitest";
+
+const showToast = vi.fn();
+vi.mock("../components/Toast", () => ({
+  __esModule: true,
+  useToast: () => ({ showToast }),
+  ToastProvider: ({ children }) => children,
+  default: ({ children }) => children,
+}));
+globalThis.__showToast = showToast;
 
 // Browser APIs used by charting/layout libs
 if (!("ResizeObserver" in globalThis)) {
@@ -38,6 +47,10 @@ if (!window.matchMedia) {
       dispatchEvent: () => false,
     }) as MediaQueryList;
 }
+
+beforeEach(() => {
+  showToast.mockClear();
+});
 
 window.scrollTo = window.scrollTo || (() => {});
 window.alert = window.alert || (() => {});

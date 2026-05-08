@@ -1,7 +1,15 @@
 package com.thesis.smart_resource_planner.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.thesis.smart_resource_planner.enums.UserRole;
 import com.thesis.smart_resource_planner.model.dto.TaskTimeEntryDTO;
+import com.thesis.smart_resource_planner.model.entity.Employee;
+import com.thesis.smart_resource_planner.model.entity.User;
+import com.thesis.smart_resource_planner.repository.EmployeeRepository;
+import com.thesis.smart_resource_planner.repository.TaskRepository;
+import com.thesis.smart_resource_planner.repository.UserRepository;
+import com.thesis.smart_resource_planner.security.CustomUserDetailsService;
+import com.thesis.smart_resource_planner.security.JwtTokenProvider;
 import com.thesis.smart_resource_planner.security.UserPrincipal;
 import com.thesis.smart_resource_planner.service.TaskTimeEntryService;
 import org.junit.jupiter.api.DisplayName;
@@ -31,6 +39,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(TaskTimeEntryController.class)
 @ActiveProfiles("test")
+@SuppressWarnings("removal")
 class TaskTimeEntryControllerDedicatedTest {
 
     @Autowired
@@ -42,20 +51,20 @@ class TaskTimeEntryControllerDedicatedTest {
     @MockBean
     private TaskTimeEntryService taskTimeEntryService;
 
-    @MockBean
-    private com.thesis.smart_resource_planner.repository.TaskRepository taskRepository;
+        @MockBean
+        private TaskRepository taskRepository;
 
-    @MockBean
-    private com.thesis.smart_resource_planner.repository.EmployeeRepository employeeRepository;
+        @MockBean
+        private EmployeeRepository employeeRepository;
 
-    @MockBean
-    private com.thesis.smart_resource_planner.repository.UserRepository userRepository;
+        @MockBean
+        private UserRepository userRepository;
 
-    @MockBean
-    private com.thesis.smart_resource_planner.security.JwtTokenProvider jwtTokenProvider;
+        @MockBean
+        private JwtTokenProvider jwtTokenProvider;
 
-    @MockBean
-    private com.thesis.smart_resource_planner.security.CustomUserDetailsService customUserDetailsService;
+        @MockBean
+        private CustomUserDetailsService customUserDetailsService;
 
     @Test
     @WithMockUser(roles = {"EMPLOYEE"})
@@ -70,13 +79,13 @@ class TaskTimeEntryControllerDedicatedTest {
         when(taskRepository.existsById(taskId)).thenReturn(false);
 
         UserPrincipal principal = UserPrincipal.create(
-                com.thesis.smart_resource_planner.model.entity.User.builder()
+                User.builder()
                         .id(UUID.randomUUID())
                         .username("u")
                         .email("u@x.com")
                         .passwordHash("x")
                         .isActive(true)
-                        .role(com.thesis.smart_resource_planner.enums.UserRole.EMPLOYEE)
+                        .role(UserRole.EMPLOYEE)
                         .build());
 
         mockMvc.perform(post("/api/tasks/time")
@@ -99,16 +108,16 @@ class TaskTimeEntryControllerDedicatedTest {
         dto.setWorkDate(LocalDateTime.now());
 
         when(taskRepository.existsById(taskId)).thenReturn(true);
-        when(employeeRepository.findByUserId(userId)).thenReturn(Optional.of(new com.thesis.smart_resource_planner.model.entity.Employee()));
+        when(employeeRepository.findByUserId(userId)).thenReturn(Optional.of(new Employee()));
 
         UserPrincipal principal = UserPrincipal.create(
-                com.thesis.smart_resource_planner.model.entity.User.builder()
+                User.builder()
                         .id(userId)
                         .username("u")
                         .email("u@x.com")
                         .passwordHash("x")
                         .isActive(true)
-                        .role(com.thesis.smart_resource_planner.enums.UserRole.EMPLOYEE)
+                        .role(UserRole.EMPLOYEE)
                         .build());
 
         mockMvc.perform(post("/api/tasks/time")
@@ -159,17 +168,17 @@ class TaskTimeEntryControllerDedicatedTest {
         created.setWorkDate(LocalDateTime.now());
 
         when(taskRepository.existsById(taskId)).thenReturn(true);
-        when(employeeRepository.findByUserId(userId)).thenReturn(Optional.of(new com.thesis.smart_resource_planner.model.entity.Employee()));
+        when(employeeRepository.findByUserId(userId)).thenReturn(Optional.of(new Employee()));
         when(taskTimeEntryService.logTime(any(TaskTimeEntryDTO.class), org.mockito.ArgumentMatchers.eq(userId))).thenReturn(created);
 
         UserPrincipal principal = UserPrincipal.create(
-                com.thesis.smart_resource_planner.model.entity.User.builder()
+                User.builder()
                         .id(userId)
                         .username("u")
                         .email("u@x.com")
                         .passwordHash("x")
                         .isActive(true)
-                        .role(com.thesis.smart_resource_planner.enums.UserRole.EMPLOYEE)
+                        .role(UserRole.EMPLOYEE)
                         .build());
 
         mockMvc.perform(post("/api/tasks/time")
@@ -196,13 +205,13 @@ class TaskTimeEntryControllerDedicatedTest {
         when(employeeRepository.findByUserId(userId)).thenReturn(Optional.empty());
 
         UserPrincipal principal = UserPrincipal.create(
-                com.thesis.smart_resource_planner.model.entity.User.builder()
+                User.builder()
                         .id(userId)
                         .username("u")
                         .email("u@x.com")
                         .passwordHash("x")
                         .isActive(true)
-                        .role(com.thesis.smart_resource_planner.enums.UserRole.EMPLOYEE)
+                        .role(UserRole.EMPLOYEE)
                         .build());
 
         mockMvc.perform(post("/api/tasks/time")

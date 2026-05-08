@@ -12,6 +12,7 @@ import { MessageCircle, X, Send, Minimize2, Mic, MicOff, Volume2, VolumeX, Refre
 import { useAuth } from '../contexts/AuthContext';
 import { useLocation } from 'react-router-dom';
 import { chatbotAPI } from '../utils/api';
+import { useToast } from '../components/Toast';
 import type { ChatbotWidgetProps } from '../types';
 
 /**
@@ -35,6 +36,7 @@ const ChatbotWidget: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const recognitionRef = useRef<any>(null);
   const { user } = useAuth();
+  const { showToast } = useToast();
   const location = useLocation();
 
   /** Scrolls the message list to the latest message. */
@@ -209,7 +211,7 @@ const ChatbotWidget: React.FC = () => {
    */
   const handleVoiceInput = async () => {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      alert('Your browser does not support audio recording.');
+      showToast('Your browser does not support audio recording.', 'warning');
       return;
     }
 
@@ -259,11 +261,11 @@ const ChatbotWidget: React.FC = () => {
           if (data.text && data.text.trim()) {
             setInput(prev => prev + (prev ? " " : "") + data.text);
           } else {
-            alert('No speech detected. Please try again.');
+            showToast('No speech detected. Please try again.', 'warning');
           }
           
         } catch (error: any) {
-          alert('HTTPS needed.Action blocked by browsers');
+          showToast('HTTPS needed. Action blocked by browsers.', 'error');
         } finally {
           setIsTyping(false);
         }
@@ -287,11 +289,11 @@ const ChatbotWidget: React.FC = () => {
 
     } catch (error: any) {     
       if (error.name === 'NotAllowedError') {
-        alert('Microphone access denied. Please allow microphone access in your browser settings.');
+        showToast('Microphone access denied. Please allow microphone access in your browser settings.', 'warning');
       } else if (error.name === 'NotFoundError') {
-        alert('No microphone found. Please connect a microphone and try again.');
+        showToast('No microphone found. Please connect a microphone and try again.', 'warning');
       } else {
-        alert('Could not access microphone: ' + error.message);
+        showToast('Could not access microphone: ' + error.message, 'error');
       }
       
       setIsListening(false);

@@ -11,6 +11,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Brain, TrendingUp, Award, AlertCircle, Loader } from 'lucide-react';
 import { aiAPI, assignmentsAPI } from '../utils/api';
 import { useTheme } from '../contexts/ThemeContext';
+import { useToast } from '../components/Toast';
 import type { AIAssignmentModalProps, Task, Employee } from '../types';
 
 /**
@@ -29,6 +30,7 @@ const AIAssignmentModal: React.FC<AIAssignmentModalProps> = ({ task, isOpen, onC
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
   const { darkMode } = useTheme();
+  const { showToast } = useToast();
 
   /**
    * Calls the AI assignment API with the task's details and stores the ranked suggestions.
@@ -90,7 +92,7 @@ const AIAssignmentModal: React.FC<AIAssignmentModalProps> = ({ task, isOpen, onC
       onAssign?.();
       onClose();
     } catch (err: any) {
-      alert('Failed to assign task: ' + err.message);
+      showToast('Failed to assign task: ' + err.message, 'error');
     }
   };
 

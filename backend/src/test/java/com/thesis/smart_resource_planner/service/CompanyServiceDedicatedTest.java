@@ -117,9 +117,6 @@ class CompanyServiceDedicatedTest {
     void getAllCompanies_success() {
         when(companyRepository.findAll()).thenReturn(List.of(testCompany));
         when(modelMapper.map(eq(testCompany), eq(CompanyDTO.class))).thenReturn(new CompanyDTO());
-        when(userRepository.countByCompanyId(companyId)).thenReturn(3L);
-        when(departmentRepository.findByCompanyId(companyId)).thenReturn(List.of());
-        when(teamRepository.findByCompanyId(companyId)).thenReturn(List.of());
 
         List<CompanyDTO> result = companyService.getAllCompanies();
         assertEquals(1, result.size());
@@ -136,9 +133,6 @@ class CompanyServiceDedicatedTest {
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(modelMapper.map(eq(testCompany), eq(CompanyDTO.class))).thenReturn(new CompanyDTO());
-        when(userRepository.countByCompanyId(userId)).thenReturn(3L);
-        when(departmentRepository.findByCompanyId(userId)).thenReturn(List.of());
-        when(teamRepository.findByCompanyId(userId)).thenReturn(List.of());
 
         CompanyDTO dto = companyService.getCompanyById(userId);
         assertNotNull(dto);

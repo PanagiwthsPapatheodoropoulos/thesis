@@ -8,12 +8,9 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Award, Loader } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
+import { useToast } from './Toast';
 import type { SkillsInputProps, Skill } from '../types';
-
-/**
- * Component for managing an employee's skills list and proficiency levels.
- *
- * @component
+ /** @component
  * @param {Object}   props               - Component props.
  * @param {string}   [props.employeeId]  - If provided, skills are persisted to the backend.
  * @param {Object[]} [props.initialSkills=[]] - Initial list of skills to display.
@@ -23,6 +20,7 @@ import type { SkillsInputProps, Skill } from '../types';
  */
 const SkillsInput: React.FC<SkillsInputProps> = ({ employeeId, initialSkills = [], onSkillsChange, readOnly = false }) => {
   const { darkMode } = useTheme();
+  const { showToast } = useToast();
   // Internal state for the current skills list
   const [skills, setSkills] = useState<any[]>([]);
   // Input field for new skill name
@@ -90,7 +88,7 @@ const SkillsInput: React.FC<SkillsInputProps> = ({ employeeId, initialSkills = [
    */
   const handleAddSkill = async () => {
     if (!inputValue.trim()) {
-        alert('Please enter a skill name');
+        showToast('Please enter a skill name', 'warning');
         return;
     }
 
@@ -146,7 +144,7 @@ const SkillsInput: React.FC<SkillsInputProps> = ({ employeeId, initialSkills = [
             // Check if skill already added
             const currentSkillIds = skills.map(s => s.skillId || s.id);
             if (currentSkillIds.includes(skillData.id)) {
-                alert('This skill is already added!');
+                showToast('This skill is already added!', 'warning');
                 setLoading(false);
                 return;
             }
@@ -219,7 +217,7 @@ const SkillsInput: React.FC<SkillsInputProps> = ({ employeeId, initialSkills = [
         setCategory('Programming');
         setShowInput(false);
     } catch (error: any) {
-        alert(`Error adding skill: ${error.message}`);
+        showToast(`Error adding skill: ${error.message}`, 'error');
     } finally {
         setLoading(false);
     }
@@ -281,7 +279,7 @@ const SkillsInput: React.FC<SkillsInputProps> = ({ employeeId, initialSkills = [
             detail: { employeeId, action: 'removed', skill: skillToRemove }
         }));
     } catch (error: any) {
-        alert('Error removing skill: ' + error.message);
+        showToast('Error removing skill: ' + error.message, 'error');
     } finally {
         setLoading(false);
     }

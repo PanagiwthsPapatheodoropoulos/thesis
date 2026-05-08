@@ -5,6 +5,7 @@ import com.thesis.smart_resource_planner.model.dto.LoginRequestDTO;
 import com.thesis.smart_resource_planner.model.dto.LoginResponseDTO;
 import com.thesis.smart_resource_planner.model.dto.UserDTO;
 import com.thesis.smart_resource_planner.model.dto.UserRegistrationDTO;
+import com.thesis.smart_resource_planner.exception.DuplicateResourceException;
 import com.thesis.smart_resource_planner.service.AuthService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -14,6 +15,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -26,6 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @DisplayName("AuthController Tests")
+@SuppressWarnings("removal")
 class AuthControllerTest {
 
     @Autowired
@@ -72,7 +75,7 @@ class AuthControllerTest {
     @Test
     @DisplayName("Should return 400 for invalid login credentials")
     void testLogin_BadCredentials() throws Exception {
-        when(authService.login(any())).thenThrow(new org.springframework.security.authentication.BadCredentialsException("Invalid credentials"));
+        when(authService.login(any())).thenThrow(new BadCredentialsException("Invalid credentials"));
 
         mockMvc.perform(post("/api/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -109,7 +112,7 @@ class AuthControllerTest {
         registrationDTO.setPassword("password123");
 
         when(authService.register(any()))
-                .thenThrow(new com.thesis.smart_resource_planner.exception.DuplicateResourceException("Username already exists"));
+            .thenThrow(new DuplicateResourceException("Username already exists"));
 
         mockMvc.perform(post("/api/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)

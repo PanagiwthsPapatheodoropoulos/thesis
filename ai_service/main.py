@@ -17,6 +17,8 @@ from typing import Optional
 from app.core.redis_client import redis_client
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi.util import get_remote_address
 from app.api import assignment, prediction, anomaly, analytics, feedback
 from app.core.training_scheduler import training_scheduler
 from app.api import skills_extraction
@@ -96,6 +98,9 @@ app = FastAPI(
 )
 
 # Configure CORS to allow secure communication with the frontend and backend
+# Add SlowAPI middleware for rate limiting
+app.add_middleware(SlowAPIMiddleware)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000", "http://localhost:5173", "http://localhost:8080"],
@@ -244,7 +249,15 @@ app.include_router(
 )
 
 # Initialize and configure the rate limiter based on company ID
-limiter = Limiter(key_func=lambda request: request.headers.get("X-Company-Id"))
+def get_rate_limit_key(request):
+    # Rate limit by Company ID, or fallback to IP for unauthenticated routes
+    company_id = request.headers.get("X-Company-Id")
+    if company_id:
+        return company_id
+    return get_remote_address(request)
+
+# Initialize and configure the rate limiter (100 requests per minute per company/IP)
+limiter = Limiter(key_func=get_rate_limit_key, default_limits=["100/minute"])
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 

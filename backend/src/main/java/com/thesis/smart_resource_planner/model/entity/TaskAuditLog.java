@@ -1,5 +1,6 @@
 package com.thesis.smart_resource_planner.model.entity;
 
+import com.thesis.smart_resource_planner.enums.AuditAction;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -30,8 +31,9 @@ public class TaskAuditLog {
     @JoinColumn(name = "user_id")
     private User user;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
-    private String action; // CREATED, UPDATED, STATUS_CHANGED, ASSIGNED, COMPLETED, etc.
+    private AuditAction action;
 
     @Column(name = "field_name", length = 100)
     private String fieldName; // Which field was changed

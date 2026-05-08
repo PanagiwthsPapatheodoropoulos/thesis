@@ -1,5 +1,6 @@
 package com.thesis.smart_resource_planner.controller;
 
+import com.thesis.smart_resource_planner.enums.UserRole;
 import com.thesis.smart_resource_planner.model.dto.*;
 import com.thesis.smart_resource_planner.model.entity.Employee;
 import com.thesis.smart_resource_planner.model.entity.EmployeeSkill;
@@ -90,6 +91,7 @@ public class EmployeeController {
      * @param department  Optional department filter.
      * @param position    Optional position filter.
      * @param search      Optional search query for names or details.
+     * @param role        Optional role filter (e.g. EMPLOYEE, MANAGER).
      * @return ResponseEntity with paginated employee records.
      */
     @GetMapping("/paginated")
@@ -102,13 +104,14 @@ public class EmployeeController {
             @RequestParam(defaultValue = "asc") String sortDir,
             @RequestParam(required = false) String department,
             @RequestParam(required = false) String position,
-            @RequestParam(required = false) String search) {
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) UserRole role) {
 
         Sort.Direction direction = sortDir.equalsIgnoreCase("desc")
                 ? Sort.Direction.DESC
                 : Sort.Direction.ASC;
 
-        // MAP Java property names to database column names
+        // Native SQL uses database column names (snake_case)
         String dbColumnName = mapPropertyToColumn(sortBy);
         Pageable pageable = PageRequest.of(page, size, Sort.by(direction, dbColumnName));
 
@@ -123,7 +126,8 @@ public class EmployeeController {
                 pageable,
                 deptFilter,
                 posFilter,
-                searchFilter);
+                searchFilter,
+                role);
 
         return ResponseEntity.ok(employees);
     }
@@ -213,6 +217,20 @@ public class EmployeeController {
     public ResponseEntity<List<EmployeeDTO>> getAllEmployees(@AuthenticationPrincipal UserPrincipal currentUser) {
         List<EmployeeDTO> employees = employeeService.getAllEmployees(currentUser.getId());
         return ResponseEntity.ok(employees);
+    }
+
+    /**
+     * Retrieves all employees whose user role is MANAGER in the current user's
+     * company.
+     *
+     * @param currentUser The currently authenticated user.
+     * @return ResponseEntity with the list of manager employees.
+     */
+    @GetMapping("/managers")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    public ResponseEntity<List<EmployeeDTO>> getAllManagers(@AuthenticationPrincipal UserPrincipal currentUser) {
+        List<EmployeeDTO> managers = employeeService.getAllManagers(currentUser.getId());
+        return ResponseEntity.ok(managers);
     }
 
     /**
@@ -427,13 +445,13 @@ public class EmployeeController {
                     // Get this employee's skills
                     List<EmployeeSkill> employeeSkills = skillsByEmployee.getOrDefault(empId, List.of());
 
-                        // Convert to {skillName: proficiency} or {skillId: proficiency} map.
+                    // Convert to {skillName: proficiency} or {skillId: proficiency} map.
                     Map<String, Integer> skillMap = employeeSkills.stream()
                             .filter(es -> es.getSkill() != null)
                             .collect(Collectors.toMap(
-                                es -> returnSkillIds
-                                    ? es.getSkill().getId().toString()
-                                    : es.getSkill().getName(),
+                                    es -> returnSkillIds
+                                            ? es.getSkill().getId().toString()
+                                            : es.getSkill().getName(),
                                     EmployeeSkill::getProficiencyLevel,
                                     (existing, replacement) -> existing // Keep first if duplicate
                             ));

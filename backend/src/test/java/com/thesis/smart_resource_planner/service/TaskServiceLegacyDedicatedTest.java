@@ -9,8 +9,17 @@ import com.thesis.smart_resource_planner.model.entity.Team;
 import com.thesis.smart_resource_planner.exception.ResourceNotFoundException;
 import com.thesis.smart_resource_planner.model.entity.Company;
 import com.thesis.smart_resource_planner.model.entity.Task;
+import com.thesis.smart_resource_planner.model.entity.TaskPermission;
 import com.thesis.smart_resource_planner.model.entity.User;
+import com.thesis.smart_resource_planner.repository.EmployeeRepository;
+import com.thesis.smart_resource_planner.repository.NotificationRepository;
+import com.thesis.smart_resource_planner.repository.SkillRepository;
+import com.thesis.smart_resource_planner.repository.TaskAssignmentRepository;
+import com.thesis.smart_resource_planner.repository.TaskPermissionRepository;
 import com.thesis.smart_resource_planner.repository.TaskRepository;
+import com.thesis.smart_resource_planner.repository.TaskRequiredSkillRepository;
+import com.thesis.smart_resource_planner.repository.TeamRepository;
+import com.thesis.smart_resource_planner.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
@@ -38,22 +47,22 @@ class TaskServiceLegacyDedicatedTest {
     private TaskRepository taskRepository;
 
     @Mock
-    private com.thesis.smart_resource_planner.repository.TeamRepository teamRepository;
+    private TeamRepository teamRepository;
 
     @Mock
-    private com.thesis.smart_resource_planner.repository.UserRepository userRepository;
+    private UserRepository userRepository;
 
     @Mock
-    private com.thesis.smart_resource_planner.repository.TaskAssignmentRepository taskAssignmentRepository;
+    private TaskAssignmentRepository taskAssignmentRepository;
 
     @Mock
-    private com.thesis.smart_resource_planner.repository.TaskPermissionRepository taskPermissionRepository;
+    private TaskPermissionRepository taskPermissionRepository;
 
     @Mock
     private NotificationService notificationService;
 
     @Mock
-    private com.thesis.smart_resource_planner.repository.EmployeeRepository employeeRepository;
+    private EmployeeRepository employeeRepository;
 
     @Mock
     private ModelMapper modelMapper;
@@ -68,13 +77,13 @@ class TaskServiceLegacyDedicatedTest {
     private TaskAuditLogService auditLogService;
 
     @Mock
-    private com.thesis.smart_resource_planner.repository.NotificationRepository notificationRepository;
+    private NotificationRepository notificationRepository;
 
     @Mock
-    private com.thesis.smart_resource_planner.repository.TaskRequiredSkillRepository taskRequiredSkillRepository;
+    private TaskRequiredSkillRepository taskRequiredSkillRepository;
 
     @Mock
-    private com.thesis.smart_resource_planner.repository.SkillRepository skillRepository;
+    private SkillRepository skillRepository;
 
     @Mock
     private RestTemplate restTemplate;
@@ -307,7 +316,7 @@ class TaskServiceLegacyDedicatedTest {
         task.setCompany(company);
         task.setAssignments(new ArrayList<>());
 
-        com.thesis.smart_resource_planner.model.entity.TaskPermission p = new com.thesis.smart_resource_planner.model.entity.TaskPermission();
+        TaskPermission p = new TaskPermission();
         p.setCanComplete(true);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(plainUser));
@@ -364,7 +373,7 @@ class TaskServiceLegacyDedicatedTest {
         assertFalse(taskService.canUserViewTask(taskId, userId));
 
         when(taskPermissionRepository.findByTaskIdAndUserId(taskId, userId))
-                .thenReturn(Optional.of(new com.thesis.smart_resource_planner.model.entity.TaskPermission()));
+                .thenReturn(Optional.of(new TaskPermission()));
         assertTrue(taskService.canUserViewTask(taskId, userId));
     }
 

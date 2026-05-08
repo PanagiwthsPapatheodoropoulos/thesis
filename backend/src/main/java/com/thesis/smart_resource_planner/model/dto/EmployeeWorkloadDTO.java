@@ -1,6 +1,7 @@
 // src/main/java/com/thesis/smart_resource_planner/model/dto/EmployeeWorkloadDTO.java
 package com.thesis.smart_resource_planner.model.dto;
 
+import com.thesis.smart_resource_planner.enums.WorkloadStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -21,5 +22,5 @@ public class EmployeeWorkloadDTO {
     private Integer pendingTasks;
     private Double workloadPercentage;
     private Integer availableHours;
-    private String status; // "UNDERLOADED", "OPTIMAL", "OVERLOADED"
-}
+    private WorkloadStatus status;
+}

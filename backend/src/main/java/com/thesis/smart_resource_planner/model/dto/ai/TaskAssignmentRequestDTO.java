@@ -26,6 +26,7 @@ public class TaskAssignmentRequestDTO {
     private BigDecimal estimatedHours;
     private List<String> requiredSkillIds;
     private BigDecimal complexityScore;
+    @Builder.Default
     private Integer topN = 5;
 
 

@@ -34,6 +34,7 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { useAuth } from './contexts/AuthContext';
 import type { ProtectedRouteProps } from './types';
 import ChatbotWidget from './components/ChatbotWidget';
+import { ToastProvider } from './components/Toast';
 
 
 /**
@@ -158,6 +159,7 @@ const LandingPageWrapper: React.FC = () => {
 function App() {
   return (
     <ThemeProvider>
+    <ToastProvider>
       <AuthProvider>
         <WebSocketProvider>
           <BrowserRouter>
@@ -192,6 +194,7 @@ function App() {
           </BrowserRouter>
         </WebSocketProvider>
       </AuthProvider>
+    </ToastProvider>
     </ThemeProvider>
   );
 }

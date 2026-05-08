@@ -37,7 +37,10 @@ describe("SkillsInput interactions", () => {
     render(<SkillsInput onSkillsChange={vi.fn()} initialSkills={[]} />);
     fireEvent.click(screen.getByText(/Add Skill/i));
     fireEvent.click(screen.getAllByText("Add Skill").slice(-1)[0]);
-    expect(window.alert).toHaveBeenCalledWith("Please enter a skill name");
+    expect((globalThis as any).__showToast).toHaveBeenCalledWith(
+      "Please enter a skill name",
+      "warning",
+    );
   });
 
   it("handles persistent skill addition with employeeId successfully", async () => {

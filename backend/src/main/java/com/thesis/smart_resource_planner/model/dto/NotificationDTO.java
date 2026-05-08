@@ -2,6 +2,7 @@ package com.thesis.smart_resource_planner.model.dto;
 
 import com.thesis.smart_resource_planner.enums.EntityType;
 import com.thesis.smart_resource_planner.enums.NotificationSeverity;
+import com.thesis.smart_resource_planner.enums.NotificationType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -20,7 +21,7 @@ public class NotificationDTO {
 
     private UUID userId;
 
-    private String type;
+    private NotificationType type;
 
     private String title;
 

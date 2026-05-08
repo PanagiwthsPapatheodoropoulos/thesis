@@ -58,7 +58,8 @@ class AIServiceDedicatedTest {
                 contains("/api/ai/assignment/suggest"),
                 eq(HttpMethod.POST),
                 any(HttpEntity.class),
-                ArgumentMatchers.<ParameterizedTypeReference<Map<String, Object>>>any()))
+                any(ParameterizedTypeReference.class),
+                any(Object[].class)))
                 .thenReturn(ResponseEntity.ok(body));
 
         List<Map<String, Object>> result = aiService.getAssignmentSuggestions(
@@ -79,7 +80,7 @@ class AIServiceDedicatedTest {
     @Test
     @DisplayName("getAssignmentSuggestions returns empty list on exception")
     void getAssignmentSuggestions_exception() {
-        when(restTemplate.exchange(anyString(), any(), any(), ArgumentMatchers.<ParameterizedTypeReference<Map<String, Object>>>any()))
+        when(restTemplate.exchange(anyString(), any(), any(), any(ParameterizedTypeReference.class), any(Object[].class)))
                 .thenThrow(new RuntimeException("boom"));
 
         List<Map<String, Object>> result = aiService.getAssignmentSuggestions(
@@ -100,10 +101,11 @@ class AIServiceDedicatedTest {
                 contains("/api/ai/prediction/predict"),
                 eq(HttpMethod.POST),
                 any(HttpEntity.class),
-                ArgumentMatchers.<ParameterizedTypeReference<Map<String, Object>>>any()))
+                any(ParameterizedTypeReference.class),
+                any(Object[].class)))
                 .thenReturn(ResponseEntity.ok(body));
 
-        Map<String, Object> ok = aiService.predictTaskDuration(taskId, "MEDIUM", 0.5, List.of(), "token", companyId);
+        Map<String, Object> ok = aiService.predictTaskDuration(taskId.toString(), "Desc", "MEDIUM", 0.5, List.of(), "token", companyId);
         assertNotNull(ok);
         assertEquals(12.5, ((Number) ok.get("predicted_hours")).doubleValue(), 0.0001);
 
@@ -111,10 +113,11 @@ class AIServiceDedicatedTest {
                 contains("/api/ai/prediction/predict"),
                 eq(HttpMethod.POST),
                 any(HttpEntity.class),
-                ArgumentMatchers.<ParameterizedTypeReference<Map<String, Object>>>any()))
+                any(ParameterizedTypeReference.class),
+                any(Object[].class)))
                 .thenThrow(new RuntimeException("fail"));
 
-        Map<String, Object> bad = aiService.predictTaskDuration(taskId, "MEDIUM", 0.5, List.of(), "token", companyId);
+        Map<String, Object> bad = aiService.predictTaskDuration(taskId.toString(), "Desc", "MEDIUM", 0.5, List.of(), "token", companyId);
         assertNull(bad);
     }
 
@@ -128,7 +131,8 @@ class AIServiceDedicatedTest {
                 contains("/api/ai/anomaly/detect"),
                 eq(HttpMethod.POST),
                 any(HttpEntity.class),
-                ArgumentMatchers.<ParameterizedTypeReference<Map<String, Object>>>any()))
+                any(ParameterizedTypeReference.class),
+                any(Object[].class)))
                 .thenReturn(ResponseEntity.ok(body));
 
         Map<String, Object> ok = aiService.detectAnomalies("TASK", "123", "token", companyId);
@@ -139,7 +143,8 @@ class AIServiceDedicatedTest {
                 contains("/api/ai/anomaly/detect"),
                 eq(HttpMethod.POST),
                 any(HttpEntity.class),
-                ArgumentMatchers.<ParameterizedTypeReference<Map<String, Object>>>any()))
+                any(ParameterizedTypeReference.class),
+                any(Object[].class)))
                 .thenThrow(new RuntimeException("boom"));
 
         assertNull(aiService.detectAnomalies("TASK", "123", "token", companyId));
@@ -155,7 +160,8 @@ class AIServiceDedicatedTest {
                 contains("/api/ai/analytics/productivity"),
                 eq(HttpMethod.POST),
                 any(HttpEntity.class),
-                ArgumentMatchers.<ParameterizedTypeReference<Map<String, Object>>>any()))
+                any(ParameterizedTypeReference.class),
+                any(Object[].class)))
                 .thenReturn(ResponseEntity.ok(body));
 
         Map<String, Object> ok = aiService.getProductivityAnalytics(null, null, "token", companyId);
@@ -166,7 +172,8 @@ class AIServiceDedicatedTest {
                 contains("/api/ai/analytics/productivity"),
                 eq(HttpMethod.POST),
                 any(HttpEntity.class),
-                ArgumentMatchers.<ParameterizedTypeReference<Map<String, Object>>>any()))
+                any(ParameterizedTypeReference.class),
+                any(Object[].class)))
                 .thenThrow(new RuntimeException("nope"));
 
         assertNull(aiService.getProductivityAnalytics(7, true, "token", companyId));
@@ -183,7 +190,8 @@ class AIServiceDedicatedTest {
                 contains("/api/ai/assignment/bulk-optimize"),
                 eq(HttpMethod.POST),
                 any(HttpEntity.class),
-                ArgumentMatchers.<ParameterizedTypeReference<Map<String, Object>>>any()))
+                any(ParameterizedTypeReference.class),
+                any(Object[].class)))
                 .thenReturn(ResponseEntity.ok(okBody));
 
         List<Map<String, Object>> ok = aiService.bulkOptimizeAssignments(taskIds, null, "token", companyId);
@@ -193,7 +201,8 @@ class AIServiceDedicatedTest {
                 contains("/api/ai/assignment/bulk-optimize"),
                 eq(HttpMethod.POST),
                 any(HttpEntity.class),
-                ArgumentMatchers.<ParameterizedTypeReference<Map<String, Object>>>any()))
+                any(ParameterizedTypeReference.class),
+                any(Object[].class)))
                 .thenReturn(ResponseEntity.ok(Map.of("status", "ok")));
         List<Map<String, Object>> empty = aiService.bulkOptimizeAssignments(taskIds, false, "token", companyId);
         assertTrue(empty.isEmpty());
@@ -202,7 +211,8 @@ class AIServiceDedicatedTest {
                 contains("/api/ai/assignment/bulk-optimize"),
                 eq(HttpMethod.POST),
                 any(HttpEntity.class),
-                ArgumentMatchers.<ParameterizedTypeReference<Map<String, Object>>>any()))
+                any(ParameterizedTypeReference.class),
+                any(Object[].class)))
                 .thenThrow(new RuntimeException("boom"));
         assertTrue(aiService.bulkOptimizeAssignments(taskIds, true, "token", companyId).isEmpty());
     }
@@ -216,7 +226,8 @@ class AIServiceDedicatedTest {
                 contains("/api/ai/feedback/performance"),
                 eq(HttpMethod.GET),
                 any(HttpEntity.class),
-                ArgumentMatchers.<ParameterizedTypeReference<Map<String, Object>>>any()))
+                any(ParameterizedTypeReference.class),
+                any(Object[].class)))
                 .thenReturn(ResponseEntity.ok(Map.of("mae", 1.23)));
         Map<String, Object> perf = aiService.getModelPerformance("token", companyId);
         assertNotNull(perf);
@@ -226,7 +237,8 @@ class AIServiceDedicatedTest {
                 contains("/api/ai/feedback/performance"),
                 eq(HttpMethod.GET),
                 any(HttpEntity.class),
-                ArgumentMatchers.<ParameterizedTypeReference<Map<String, Object>>>any()))
+                any(ParameterizedTypeReference.class),
+                any(Object[].class)))
                 .thenThrow(new RuntimeException("fail"));
         assertNull(aiService.getModelPerformance("token", companyId));
 
@@ -234,7 +246,8 @@ class AIServiceDedicatedTest {
                 contains("/api/ai/feedback/trigger-training"),
                 eq(HttpMethod.POST),
                 any(HttpEntity.class),
-                ArgumentMatchers.<ParameterizedTypeReference<Map<String, Object>>>any()))
+                any(ParameterizedTypeReference.class),
+                any(Object[].class)))
                 .thenReturn(ResponseEntity.ok(Map.of("started", true)));
         Map<String, Object> retrain = aiService.triggerRetraining(true, "token", companyId);
         assertNotNull(retrain);
@@ -244,7 +257,8 @@ class AIServiceDedicatedTest {
                 contains("/api/ai/feedback/trigger-training"),
                 eq(HttpMethod.POST),
                 any(HttpEntity.class),
-                ArgumentMatchers.<ParameterizedTypeReference<Map<String, Object>>>any()))
+                any(ParameterizedTypeReference.class),
+                any(Object[].class)))
                 .thenThrow(new RuntimeException("fail"));
         assertNull(aiService.triggerRetraining(false, "token", companyId));
     }

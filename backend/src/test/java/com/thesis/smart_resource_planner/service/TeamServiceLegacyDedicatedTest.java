@@ -1,6 +1,7 @@
 package com.thesis.smart_resource_planner.service;
 
 import com.thesis.smart_resource_planner.exception.DuplicateResourceException;
+import com.thesis.smart_resource_planner.exception.UnauthorizedException;
 import com.thesis.smart_resource_planner.exception.ResourceNotFoundException;
 import com.thesis.smart_resource_planner.model.dto.TeamDTO;
 import com.thesis.smart_resource_planner.enums.UserRole;
@@ -161,7 +162,7 @@ class TeamServiceLegacyDedicatedTest {
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(teamRepository.findById(otherCompanyTeamId)).thenReturn(Optional.of(otherTeam));
 
-        assertThrows(SecurityException.class, () -> teamService.deleteTeam(otherCompanyTeamId, userId));
+        assertThrows(UnauthorizedException.class, () -> teamService.deleteTeam(otherCompanyTeamId, userId));
     }
 
     @Test

@@ -61,12 +61,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
    * @param {User} userData - The authenticated user object from the API.
    * @param {string} authToken - The JWT token for subsequent API requests.
    */
-  const login = (userData: User, authToken: string): void => {     
+  const login = (userData: User, authToken: string, refreshToken?: string): void => {     
     setUser(userData);
     setToken(authToken);
     setAuthReady(true);
     localStorage.setItem('user', JSON.stringify(userData));
     localStorage.setItem('token', authToken);
+    if (refreshToken) {
+      localStorage.setItem('refreshToken', refreshToken);
+    }
     sessionStorage.setItem('activeSession', 'true');
   };
 
@@ -124,7 +127,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
  * Custom hook for consuming the AuthContext.
  * Must be called within a component that is a descendant of AuthProvider.
  *
- * @returns {{ user: User|null, token: string|null, loading: boolean, authReady: boolean, login: Function, logout: Function, updateUser: Function }}
+ * @returns {{ user: User|null, token: string|null, loading: boolean, authReady: boolean, login: (userData: User, authToken: string, refreshToken?: string) => void, logout: Function, updateUser: Function }}
  * @throws {Error} If called outside of an AuthProvider.
  */
 export const useAuth = (): AuthContextType => {

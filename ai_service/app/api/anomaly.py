@@ -4,17 +4,20 @@ This module provides a comprehensive engine for detecting irregular patterns wit
 the organization, including task duration skews, employee burnout/overload,
 critical skill gaps, and department-level workload imbalances.
 """
-from fastapi import APIRouter, HTTPException, Header
+from fastapi import APIRouter, HTTPException, Header, Request
 from typing import List, Dict
 import logging
 from pydantic import BaseModel, Field
 from sklearn.ensemble import IsolationForest
 import numpy as np
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from app.core.backend_client import backend_client
 from app.core.skill_matcher import skill_matcher
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+limiter = Limiter(key_func=get_remote_address)
 
 # ============================================================
 # REQUEST/RESPONSE MODELS
@@ -71,8 +74,10 @@ class AnomalyDetectionResponse(BaseModel):
 # ============================================================
 
 @router.post("/detect", response_model=AnomalyDetectionResponse)
+@limiter.limit("5/minute")
 async def detect_anomalies(
-    request: AnomalyDetectionRequest,
+    request: Request,
+    anomaly_request: AnomalyDetectionRequest,
     authorization: str = Header(...),
     x_company_id: str = Header(...)
 ):
@@ -97,7 +102,7 @@ async def detect_anomalies(
         results = []
         
         # Branch logic to determine which specific sub-engines to trigger
-        if request.entity_type == 'all':
+        if anomaly_request.entity_type == 'all':
             # Perform a full global scan across all data dimensions
             tasks = await backend_client.get_tasks(x_company_id, token, fetch_all=True)
             employees = await backend_client.get_employees(x_company_id, token, fetch_all=True)
@@ -112,31 +117,31 @@ async def detect_anomalies(
             results.extend(await _detect_workload_imbalance_with_data(workload))
             results.extend(await _detect_complexity_mismatch_with_data(tasks, employees))
             
-        elif request.entity_type == 'TASK':
+        elif anomaly_request.entity_type == 'TASK':
             tasks = await backend_client.get_tasks(x_company_id, token, fetch_all=True)
             results = await _detect_task_anomalies_with_data(tasks)
             
-        elif request.entity_type == 'EMPLOYEE':
+        elif anomaly_request.entity_type == 'EMPLOYEE':
             workload = await backend_client.get_employee_workload(x_company_id, token, fetch_all=True)
             results = await _detect_employee_anomalies_with_data(workload)
             
-        elif request.entity_type == 'SKILL_GAP':
+        elif anomaly_request.entity_type == 'SKILL_GAP':
             tasks = await backend_client.get_tasks(x_company_id, token, fetch_all=True)
             employees = await backend_client.get_employees(x_company_id, token, fetch_all=True)
             await _enrich_employees_with_skills(employees, x_company_id, token)
             results = await _detect_skill_gap_anomalies_with_data(tasks, employees, x_company_id, token)
             
-        elif request.entity_type == 'WORKLOAD_IMBALANCE':
+        elif anomaly_request.entity_type == 'WORKLOAD_IMBALANCE':
             workload = await backend_client.get_employee_workload(x_company_id, token, fetch_all=True)
             results = await _detect_workload_imbalance_with_data(workload)
             
-        elif request.entity_type == 'COMPLEXITY_MISMATCH':
+        elif anomaly_request.entity_type == 'COMPLEXITY_MISMATCH':
             tasks = await backend_client.get_tasks(x_company_id, token, fetch_all=True)
             employees = await backend_client.get_employees(x_company_id, token, fetch_all=True)
             await _enrich_employees_with_skills(employees, x_company_id, token)
             results = await _detect_complexity_mismatch_with_data(tasks, employees)
         else:
-            raise HTTPException(status_code=400, detail=f"Invalid entity_type: '{request.entity_type}'")
+            raise HTTPException(status_code=400, detail=f"Invalid entity_type: '{anomaly_request.entity_type}'")
         
         # Filter only active anomalies to reduce response payload noise
         anomalies = [r for r in results if r.get('is_anomaly', False)]

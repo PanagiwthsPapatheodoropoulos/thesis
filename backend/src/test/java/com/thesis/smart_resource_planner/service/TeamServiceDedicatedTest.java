@@ -2,6 +2,7 @@ package com.thesis.smart_resource_planner.service;
 
 import com.thesis.smart_resource_planner.enums.UserRole;
 import com.thesis.smart_resource_planner.exception.DuplicateResourceException;
+import com.thesis.smart_resource_planner.exception.UnauthorizedException;
 import com.thesis.smart_resource_planner.model.dto.TeamDTO;
 import com.thesis.smart_resource_planner.model.entity.ChatMessage;
 import com.thesis.smart_resource_planner.model.entity.Company;
@@ -78,7 +79,7 @@ class TeamServiceDedicatedTest {
         when(userRepository.findById(userId)).thenReturn(Optional.of(admin));
         when(teamRepository.findById(teamId)).thenReturn(Optional.of(otherCompanyTeam));
 
-        assertThrows(SecurityException.class, () -> teamService.deleteTeam(teamId, userId));
+        assertThrows(UnauthorizedException.class, () -> teamService.deleteTeam(teamId, userId));
     }
 
     @Test

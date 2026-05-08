@@ -1,7 +1,17 @@
 package com.thesis.smart_resource_planner.service;
 
+import com.thesis.smart_resource_planner.model.entity.Skill;
 import com.thesis.smart_resource_planner.model.entity.Task;
 import com.thesis.smart_resource_planner.model.entity.TaskRequiredSkill;
+import com.thesis.smart_resource_planner.repository.EmployeeRepository;
+import com.thesis.smart_resource_planner.repository.NotificationRepository;
+import com.thesis.smart_resource_planner.repository.SkillRepository;
+import com.thesis.smart_resource_planner.repository.TaskAssignmentRepository;
+import com.thesis.smart_resource_planner.repository.TaskPermissionRepository;
+import com.thesis.smart_resource_planner.repository.TaskRepository;
+import com.thesis.smart_resource_planner.repository.TaskRequiredSkillRepository;
+import com.thesis.smart_resource_planner.repository.TeamRepository;
+import com.thesis.smart_resource_planner.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,20 +32,20 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class TaskServiceBatchDedicatedTest {
 
-    @Mock private com.thesis.smart_resource_planner.repository.TaskRepository taskRepository;
-    @Mock private com.thesis.smart_resource_planner.repository.TeamRepository teamRepository;
-    @Mock private com.thesis.smart_resource_planner.repository.UserRepository userRepository;
-    @Mock private com.thesis.smart_resource_planner.repository.TaskAssignmentRepository taskAssignmentRepository;
-    @Mock private com.thesis.smart_resource_planner.repository.TaskPermissionRepository taskPermissionRepository;
+    @Mock private TaskRepository taskRepository;
+    @Mock private TeamRepository teamRepository;
+    @Mock private UserRepository userRepository;
+    @Mock private TaskAssignmentRepository taskAssignmentRepository;
+    @Mock private TaskPermissionRepository taskPermissionRepository;
     @Mock private NotificationService notificationService;
-    @Mock private com.thesis.smart_resource_planner.repository.EmployeeRepository employeeRepository;
+    @Mock private EmployeeRepository employeeRepository;
     @Mock private ModelMapper modelMapper;
     @Mock private SimpMessagingTemplate messagingTemplate;
     @Mock private WebSocketBroadcastService broadcastService;
     @Mock private TaskAuditLogService auditLogService;
-    @Mock private com.thesis.smart_resource_planner.repository.NotificationRepository notificationRepository;
-    @Mock private com.thesis.smart_resource_planner.repository.TaskRequiredSkillRepository taskRequiredSkillRepository;
-    @Mock private com.thesis.smart_resource_planner.repository.SkillRepository skillRepository;
+    @Mock private NotificationRepository notificationRepository;
+    @Mock private TaskRequiredSkillRepository taskRequiredSkillRepository;
+    @Mock private SkillRepository skillRepository;
     @Mock private RestTemplate restTemplate;
 
     @InjectMocks private TaskService taskService;
@@ -67,8 +77,8 @@ class TaskServiceBatchDedicatedTest {
 
         Task task1 = new Task(); task1.setId(t1);
         Task task2 = new Task(); task2.setId(t2);
-        com.thesis.smart_resource_planner.model.entity.Skill skill1 = new com.thesis.smart_resource_planner.model.entity.Skill(); skill1.setId(s1);
-        com.thesis.smart_resource_planner.model.entity.Skill skill2 = new com.thesis.smart_resource_planner.model.entity.Skill(); skill2.setId(s2);
+        Skill skill1 = new Skill(); skill1.setId(s1);
+        Skill skill2 = new Skill(); skill2.setId(s2);
 
         TaskRequiredSkill trs1 = TaskRequiredSkill.builder().task(task1).skill(skill1).build();
         TaskRequiredSkill trs2 = TaskRequiredSkill.builder().task(task1).skill(skill2).build();

@@ -2,12 +2,13 @@ package com.thesis.smart_resource_planner.model.entity;
 
 import com.thesis.smart_resource_planner.enums.EntityType;
 import com.thesis.smart_resource_planner.enums.NotificationSeverity;
+import com.thesis.smart_resource_planner.enums.NotificationType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.GenericGenerator;
+import org.hibernate.annotations.UuidGenerator;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -23,8 +24,8 @@ public class Notification {
 
 
     @Id
-    @GeneratedValue(generator = "UUID")
-    @GenericGenerator(name = "UUID", strategy = "org.hibernate.id.UUIDGenerator")
+    @GeneratedValue
+    @UuidGenerator
     @Column(updatable = false, nullable = false)
     private UUID id;
 
@@ -32,8 +33,9 @@ public class Notification {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
-    private String type;
+    private NotificationType type;
 
     @Column(nullable = false)
     private String title;
@@ -43,9 +45,11 @@ public class Notification {
 
     @Enumerated(EnumType.STRING)
     @Column(length = 20)
+    @Builder.Default
     private NotificationSeverity severity = NotificationSeverity.INFO;
 
     @Column(name = "is_read")
+    @Builder.Default
     private Boolean isRead = false;
 
     @Column(name = "related_entity_type", length = 50)

@@ -11,9 +11,11 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { notificationsAPI, chatAPI, employeesAPI, tasksAPI, assignmentsAPI } from '../utils/api';
-import { useWebSocket, EVENT_TYPES } from '../contexts/WebSocketProvider';
 import { useTheme } from '../contexts/ThemeContext';
-import type { Notification } from '../types';
+import { useWebSocket, EVENT_TYPES } from '../contexts/WebSocketProvider';
+import PromotionModal from './PromotionModal';
+import type { Notification as AppNotification } from '../types';
+
 
 interface MainLayoutProps {
   children?: React.ReactNode;
@@ -49,13 +51,16 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     const [unreadCount, setUnreadCount] = useState<number>(0);
     const [unreadChatCount, setUnreadChatCount] = useState<number>(0);
     const [pendingAssignmentCount, setPendingAssignmentCount] = useState<number>(0);
-    const [recentNotifications, setRecentNotifications] = useState<Notification[]>([]);
+    const [recentNotifications, setRecentNotifications] = useState<AppNotification[]>([]);
     const [hasEmployeeProfile, setHasEmployeeProfile] = useState<boolean>(false);
     const [showRefreshPrompt, setShowRefreshPrompt] = useState<boolean>(false);
     const [pendingRequestsCount, setPendingRequestsCount] = useState<number>(0);
     const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
     const [showUserMenu, setShowUserMenu] = useState<boolean>(false);
     const [showNotifications, setShowNotifications] = useState<boolean>(false);
+    const [showPromotionModal, setShowPromotionModal] = useState<boolean>(false);
+    const [promotionRole, setPromotionRole] = useState<string>('Employee');
+
     
     const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const lastFetchRef = useRef(0);
@@ -215,9 +220,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 }
 
                 if (notification.type === 'ROLE_PROMOTION') {
-                    setShowRefreshPrompt(true);
+                    setPromotionRole(notification.message.includes('Manager') ? 'Manager' : 'Employee');
+                    setShowPromotionModal(true);
                     setHasEmployeeProfile(true);
                 }
+
             }),
             
             subscribe(EVENT_TYPES.NOTIFICATION_READ, (data: any) => {                
@@ -347,7 +354,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         if (!connected) return;
 
         const handleRolePromotion = (data) => {
-            window.location.reload();
+            // Instead of immediate reload, show the modal
+            setPromotionRole(data.role || 'Employee');
+            setShowPromotionModal(true);
         };
 
         const unsub = subscribe(EVENT_TYPES.USER_PROMOTED, handleRolePromotion);
@@ -843,6 +852,12 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                     </div>
                 </div>
             )}
+            {/* Promotion Modal */}
+            <PromotionModal 
+                isOpen={showPromotionModal} 
+                roleName={promotionRole}
+                message={`Your role has been updated to ${promotionRole}.`}
+            />
         </div>
     );
 };

@@ -1,6 +1,7 @@
 package com.thesis.smart_resource_planner.service;
 
 import com.thesis.smart_resource_planner.enums.*;
+import com.thesis.smart_resource_planner.exception.ResourceNotFoundException;
 import com.thesis.smart_resource_planner.model.dto.NotificationCreateDTO;
 import com.thesis.smart_resource_planner.model.dto.TaskCreateDTO;
 import com.thesis.smart_resource_planner.model.dto.TaskDTO;
@@ -120,9 +121,7 @@ class TaskServiceCoverageDedicatedTest {
         when(employeeRepository.findById(employeeId)).thenReturn(java.util.Optional.of(employee));
         when(modelMapper.map(any(Task.class), eq(TaskDTO.class))).thenReturn(new TaskDTO());
 
-        // required-skill reads
-        when(taskRequiredSkillRepository.findByTaskId(taskId)).thenReturn(List.of(
-                TaskRequiredSkill.builder().task(savedTask).skill(skill).build()));
+
 
         TransactionSynchronizationManager.initSynchronization();
         try {
@@ -512,8 +511,9 @@ class TaskServiceCoverageDedicatedTest {
         when(userRepository.findById(requesterId)).thenReturn(java.util.Optional.of(requester));
         when(skillRepository.findExistingSkillIds(List.of(missingSkill))).thenReturn(List.of());
 
-        RuntimeException ex = assertThrows(RuntimeException.class, () -> taskService.createTaskRequest(dto, requesterId));
-        assertTrue(ex.getMessage().contains("Failed to create task request"));
+        ResourceNotFoundException ex = assertThrows(ResourceNotFoundException.class,
+            () -> taskService.createTaskRequest(dto, requesterId));
+        assertTrue(ex.getMessage().contains("Skills not found"));
     }
 
     @Test
@@ -1342,8 +1342,7 @@ class TaskServiceCoverageDedicatedTest {
         when(skillRepository.findById(skillId)).thenReturn(Optional.empty());
         when(skillRepository.findByNameIgnoreCase(skillId.toString())).thenReturn(Optional.of(skill));
         when(taskRequiredSkillRepository.existsByTaskIdAndSkillId(taskId, skillId)).thenReturn(false);
-        when(taskRequiredSkillRepository.findByTaskId(taskId)).thenReturn(List.of(
-                TaskRequiredSkill.builder().task(saved).skill(skill).build()));
+
         when(modelMapper.map(any(Task.class), eq(TaskDTO.class))).thenReturn(new TaskDTO());
 
         TransactionSynchronizationManager.initSynchronization();
@@ -1400,7 +1399,7 @@ class TaskServiceCoverageDedicatedTest {
         when(taskPermissionRepository.findByTaskIdAndUserId(taskId, creatorId)).thenReturn(Optional.empty());
         when(skillRepository.findById(skillId)).thenReturn(Optional.of(skill));
         when(taskRequiredSkillRepository.existsByTaskIdAndSkillId(taskId, skillId)).thenReturn(true);
-        when(taskRequiredSkillRepository.findByTaskId(taskId)).thenReturn(List.of());
+
         when(modelMapper.map(any(Task.class), eq(TaskDTO.class))).thenReturn(new TaskDTO());
 
         TransactionSynchronizationManager.initSynchronization();

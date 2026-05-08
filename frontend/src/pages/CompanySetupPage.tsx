@@ -6,6 +6,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Building2, Key, ArrowLeft, Sparkles, User, Mail, Lock } from 'lucide-react';
 import { authAPI } from '../utils/api';
+import { useToast } from '../components/Toast';
 
 
 /**
@@ -17,6 +18,7 @@ import { authAPI } from '../utils/api';
  */
 const CompanySetupPage = () => {
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const [mode, setMode] = useState<'create' | 'join' | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
@@ -63,7 +65,10 @@ const CompanySetupPage = () => {
         adminPassword: createData.adminPassword
       });
 
-      alert(`Company created! Your join code is: ${response.joinCode}\n\nShare this code with employees to join your company.`);
+      showToast(
+        `Company created! Your join code is: ${response.joinCode}. Share this code with employees to join your company.`,
+        'success'
+      );
       
       navigate('/login', {
         state: {

@@ -1,5 +1,6 @@
 package com.thesis.smart_resource_planner.service;
 
+import com.thesis.smart_resource_planner.enums.UserRole;
 import com.thesis.smart_resource_planner.exception.ResourceNotFoundException;
 import com.thesis.smart_resource_planner.model.dto.TaskCommentCreateDTO;
 import com.thesis.smart_resource_planner.model.dto.TaskCommentDTO;
@@ -64,7 +65,7 @@ public class TaskCommentService {
             return mapToDTO(saved);
 
         } catch (Exception e) {
-            throw new RuntimeException("Failed to create comment: " + e.getMessage());
+            throw new IllegalStateException("Failed to create comment: " + e.getMessage(), e);
         }
     }
 
@@ -127,7 +128,7 @@ public class TaskCommentService {
             User user = userRepository.findById(userId)
                     .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-            if (!user.getRole().name().equals("ADMIN")) {
+            if (user.getRole() != UserRole.ADMIN) {
                 throw new IllegalStateException("Only comment owner or admin can delete");
             }
         }
