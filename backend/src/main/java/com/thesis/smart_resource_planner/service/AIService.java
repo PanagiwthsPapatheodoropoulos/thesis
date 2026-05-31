@@ -227,6 +227,72 @@ public class AIService {
     }
 
     /**
+     * Prioritizes a backlog of tasks based on AI analysis.
+     */
+    public Map<String, Object> prioritizeBacklog(
+            List<Map<String, Object>> tasks,
+            String token,
+            UUID companyId) {
+        try {
+            String url = aiServiceUrl + "/api/ai/task-analysis/prioritize-backlog";
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set("Authorization", "Bearer " + token);
+            headers.set("X-Company-Id", companyId.toString());
+
+            HttpEntity<List<Map<String, Object>>> entity = new HttpEntity<>(
+                    tasks != null ? tasks : List.of(),
+                    headers);
+
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.POST,
+                    entity,
+                    new ParameterizedTypeReference<Map<String, Object>>() {
+                    });
+
+            return response.getBody();
+        } catch (Exception e) {
+            log.error("Failed to prioritize backlog: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Suggests missing team skills based on the backlog and existing skills.
+     */
+    public Map<String, Object> suggestTeamSkills(
+            Map<String, Object> payload,
+            String token,
+            UUID companyId) {
+        try {
+            String url = aiServiceUrl + "/api/ai/skills/suggest-for-team";
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set("Authorization", "Bearer " + token);
+            headers.set("X-Company-Id", companyId.toString());
+
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(
+                    payload != null ? payload : Map.of(),
+                    headers);
+
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.POST,
+                    entity,
+                    new ParameterizedTypeReference<Map<String, Object>>() {
+                    });
+
+            return response.getBody();
+        } catch (Exception e) {
+            log.error("Failed to suggest team skills: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
      * Bulk optimize task assignments
      */
     public List<Map<String, Object>> bulkOptimizeAssignments(

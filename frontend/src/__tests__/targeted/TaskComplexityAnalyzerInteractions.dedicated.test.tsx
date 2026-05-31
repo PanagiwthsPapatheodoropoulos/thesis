@@ -50,5 +50,55 @@ describe("TaskComplexityAnalyzer interactions", () => {
     fireEvent.click(screen.getByText(/Analyze Task Complexity with AI/i));
     await waitFor(() => expect(screen.getByText(/Analysis Failed/i)).toBeInTheDocument());
   });
-});
 
+  it("renders in dark mode correctly", () => {
+    const { container } = render(<TaskComplexityAnalyzer title="Valid title" description="desc" darkMode={true} />);
+    expect(screen.getByText(/Analyze Task Complexity with AI/i)).toBeInTheDocument();
+  });
+
+  it("handles low complexity score and green indicator color", async () => {
+    mocks.analyzeTaskComplexity.mockResolvedValueOnce({
+      complexity_score: 0.3,
+      category: "Simple",
+      risk_level: "LOW",
+      effort_hours_estimate: 2.0,
+      reasoning: "Very basic task",
+      blocking_factors: [],
+      required_expertise: ["HTML"],
+    });
+
+    render(<TaskComplexityAnalyzer title="Simple title" description="easy" />);
+    fireEvent.click(screen.getByText(/Analyze Task Complexity with AI/i));
+    await waitFor(() => expect(screen.getByText("30%")).toBeInTheDocument());
+    expect(screen.getByText("30%")).toHaveClass("text-green-500");
+  });
+
+  it("handles medium complexity score and orange indicator color", async () => {
+    mocks.analyzeTaskComplexity.mockResolvedValueOnce({
+      complexity_score: 0.6,
+      category: "Medium",
+      risk_level: "MEDIUM",
+      effort_hours_estimate: 8.0,
+      reasoning: "Standard CRUD",
+    });
+
+    render(<TaskComplexityAnalyzer title="Medium task title" description="standard" />);
+    fireEvent.click(screen.getByText(/Analyze Task Complexity with AI/i));
+    await waitFor(() => expect(screen.getByText("60%")).toBeInTheDocument());
+    expect(screen.getByText("60%")).toHaveClass("text-orange-500");
+  });
+
+  it("handles missing optional values in response gracefully", async () => {
+    mocks.analyzeTaskComplexity.mockResolvedValueOnce({
+      complexity_score: 0.5,
+    });
+
+    render(<TaskComplexityAnalyzer title="Uncertain title" description="desc" />);
+    fireEvent.click(screen.getByText(/Analyze Task Complexity with AI/i));
+    await waitFor(() => expect(screen.getByText("50%")).toBeInTheDocument());
+    expect(screen.getByText("Unknown")).toBeInTheDocument();
+    expect(screen.getByText("UNKNOWN")).toBeInTheDocument();
+    expect(screen.getByText("0.0h")).toBeInTheDocument();
+    expect(screen.getByText("No reasoning provided")).toBeInTheDocument();
+  });
+});

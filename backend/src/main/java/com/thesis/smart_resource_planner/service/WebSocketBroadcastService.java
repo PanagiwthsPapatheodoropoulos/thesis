@@ -138,6 +138,18 @@ public class WebSocketBroadcastService {
                 "task", task));
     }
 
+    /**
+     * Notifies a user that a task has been deleted.
+     *
+     * @param userId the UUID of the target user
+     * @param taskId the UUID of the deleted task
+     */
+    public void broadcastTaskDeleted(UUID userId, UUID taskId) {
+        send(userId, "/queue/task-updates", Map.of(
+                "action", "task_deleted",
+                "taskId", taskId.toString()));
+    }
+
     // ─────────────────────────────── ASSIGNMENTS ──────────────────────────────
 
     /**

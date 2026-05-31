@@ -263,6 +263,56 @@ class AIServiceDedicatedTest {
         assertNull(aiService.triggerRetraining(false, "token", companyId));
     }
 
+        @Test
+        @DisplayName("prioritizeBacklog returns body or null on exception")
+        void prioritizeBacklog_successAndException() {
+                UUID companyId = UUID.randomUUID();
+                List<Map<String, Object>> tasks = List.of(Map.of("title", "Task 1"));
+
+                Map<String, Object> body = Map.of("prioritized", List.of(Map.of("title", "Task 1")));
+                when(restTemplate.exchange(
+                                contains("/api/ai/task-analysis/prioritize-backlog"),
+                                eq(HttpMethod.POST),
+                                any(HttpEntity.class),
+                                any(ParameterizedTypeReference.class),
+                                any(Object[].class)))
+                                .thenReturn(ResponseEntity.ok(body))
+                                .thenThrow(new RuntimeException("fail"));
+
+                Map<String, Object> ok = aiService.prioritizeBacklog(tasks, "token", companyId);
+                assertNotNull(ok);
+                assertEquals(1, ((List<?>) ok.get("prioritized")).size());
+
+                Map<String, Object> bad = aiService.prioritizeBacklog(tasks, "token", companyId);
+                assertNull(bad);
+        }
+
+        @Test
+        @DisplayName("suggestTeamSkills returns body or null on exception")
+        void suggestTeamSkills_successAndException() {
+                UUID companyId = UUID.randomUUID();
+                Map<String, Object> payload = Map.of(
+                                "team_tasks", List.of(Map.of("title", "Task 1")),
+                                "existing_skills", List.of("Java"));
+
+                Map<String, Object> body = Map.of("suggestions", List.of(Map.of("skill_name", "Java")));
+                when(restTemplate.exchange(
+                                contains("/api/ai/skills/suggest-for-team"),
+                                eq(HttpMethod.POST),
+                                any(HttpEntity.class),
+                                any(ParameterizedTypeReference.class),
+                                any(Object[].class)))
+                                .thenReturn(ResponseEntity.ok(body))
+                                .thenThrow(new RuntimeException("fail"));
+
+                Map<String, Object> ok = aiService.suggestTeamSkills(payload, "token", companyId);
+                assertNotNull(ok);
+                assertEquals(1, ((List<?>) ok.get("suggestions")).size());
+
+                Map<String, Object> bad = aiService.suggestTeamSkills(payload, "token", companyId);
+                assertNull(bad);
+        }
+
     @Test
     @DisplayName("private getJwtToken resolves credentials from security context")
     void getJwtToken_privateMethod() throws Exception {

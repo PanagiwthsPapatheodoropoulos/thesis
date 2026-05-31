@@ -79,4 +79,3 @@ describe("TasksPage interactions", () => {
     expect(screen.getByText("Create New Task")).toBeInTheDocument();
   });
 });
-

@@ -41,19 +41,33 @@ describe("ChatbotWidget coverage", () => {
     // Mock global fetch for audio transcription
     global.fetch = vi.fn();
 
+    // Mock SpeechRecognition
+    const mockStart = vi.fn();
+    const mockStop = vi.fn();
+
+    class MockSpeechRecognition {
+      constructor() {
+        this.lang = 'en-US';
+        this.interimResults = false;
+        this.continuous = false;
+        this.maxAlternatives = 1;
+        MockSpeechRecognition.lastInstance = this;
+      }
+      start = mockStart;
+      stop = mockStop;
+    }
+    MockSpeechRecognition.lastInstance = null;
+
+    window.webkitSpeechRecognition = MockSpeechRecognition;
+    window.SpeechRecognition = MockSpeechRecognition;
+
     // Mock MediaDevices
     global.MediaRecorder = class {
       constructor() {
         this.state = "inactive";
       }
-      start() {
-        this.state = "recording";
-        if (this.onstart) this.onstart();
-      }
-      stop() {
-        this.state = "inactive";
-        if (this.onstop) this.onstop();
-      }
+      start = mockStart;
+      stop = mockStop;
     };
 
     Object.defineProperty(navigator, 'mediaDevices', {
@@ -182,10 +196,6 @@ describe("ChatbotWidget coverage", () => {
 
   it("handles voice recording", async () => {
     chatbotAPI.health.mockResolvedValue({ status: "healthy" });
-    global.fetch.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ text: "Voice text" })
-    });
     
     render(<MemoryRouter><ChatbotWidget /></MemoryRouter>);
     await act(async () => fireEvent.click(screen.getByRole("button")));
@@ -196,8 +206,24 @@ describe("ChatbotWidget coverage", () => {
       fireEvent.click(micBtn);
     });
     
-    // Expect media recorder to be mocked and started
-    expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalled();
+    // Expect speech recognition start to be called
+    expect(window.webkitSpeechRecognition.lastInstance.start).toHaveBeenCalled();
+    
+    // Simulate speech recognition result
+    await act(async () => {
+      const recognitionInstance = window.webkitSpeechRecognition.lastInstance;
+      if (recognitionInstance && recognitionInstance.onresult) {
+        recognitionInstance.onresult({
+          resultIndex: 0,
+          results: [
+            {
+              0: { transcript: "Voice text" },
+              isFinal: true
+            }
+          ]
+        });
+      }
+    });
     
     // Click again to stop
     await act(async () => {

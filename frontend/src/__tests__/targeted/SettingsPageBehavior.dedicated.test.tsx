@@ -8,6 +8,11 @@ import { MemoryRouter } from "react-router-dom";
 const mocks = vi.hoisted(() => ({
   getAll: vi.fn(),
   getById: vi.fn(),
+  logout: vi.fn(),
+  updateUser: vi.fn(),
+  user: { id: "u1", role: "ADMIN", username: "user", email: "u@x.com" },
+  getMyCompany: vi.fn(),
+  blocklistGetAll: vi.fn(),
 }));
 
 vi.mock("../../utils/api", () => ({
@@ -17,7 +22,17 @@ vi.mock("../../utils/api", () => ({
     update: vi.fn().mockResolvedValue({}),
     delete: vi.fn().mockResolvedValue({}),
   },
+  companiesAPI: {
+    getMyCompany: mocks.getMyCompany,
+    regenerateJoinCode: vi.fn().mockResolvedValue("NEWCODE123"),
+  },
+  blocklistAPI: {
+    getAll: mocks.blocklistGetAll,
+    block: vi.fn().mockResolvedValue({}),
+    unblock: vi.fn().mockResolvedValue({}),
+  },
 }));
+
 
 vi.mock("react-router-dom", async (orig) => {
   const mod = await orig();
@@ -26,9 +41,9 @@ vi.mock("react-router-dom", async (orig) => {
 
 vi.mock("../../contexts/AuthContext", () => ({
   useAuth: () => ({
-    user: { id: "u1", role: "ADMIN", username: "user", email: "u@x.com" },
-    logout: vi.fn(),
-    updateUser: vi.fn(),
+    user: mocks.user,
+    logout: mocks.logout,
+    updateUser: mocks.updateUser,
   }),
 }));
 
@@ -36,13 +51,17 @@ vi.mock("../../contexts/ThemeContext", () => ({
   useTheme: () => ({ darkMode: true }),
 }));
 
+
 import SettingsPage from "../../pages/SettingsPage";
 
 describe("SettingsPage behavior", () => {
   beforeEach(() => {
     mocks.getAll.mockResolvedValue([{ role: "ADMIN" }, { role: "MANAGER" }]);
     mocks.getById.mockResolvedValue({ teamId: null, teamName: null });
+    mocks.getMyCompany.mockResolvedValue({ id: "c1", joinCode: "ABCDEF1234" });
+    mocks.blocklistGetAll.mockResolvedValue([]);
   });
+
 
   it("loads role counts and user team info", async () => {
     render(

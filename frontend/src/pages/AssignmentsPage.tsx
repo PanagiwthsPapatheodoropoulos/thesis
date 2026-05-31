@@ -9,6 +9,7 @@ import { assignmentsAPI, employeesAPI } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useWebSocket, EVENT_TYPES } from '../contexts/WebSocketProvider';
 import { useTheme } from '../contexts/ThemeContext';
+import { parseUTCDate } from '../utils/dateUtils';
 import type { TaskAssignment, Task, Employee } from '../types';
 
 /**
@@ -126,17 +127,25 @@ const AssignmentsPage = () => {
   useEffect(() => {
     if (!ready) return;
     
-    const unsub = subscribe(EVENT_TYPES.ASSIGNMENT_CREATED, (assignment) => {      
-      const { assignments } = dataRef.current;
-      
-      if (assignments.some(a => a.id === assignment.id)) return;
-      
-      const updated = [assignment, ...assignments];
-      dataRef.current.assignments = updated;
-      setState(prev => ({ ...prev, assignments: updated }));
-    });
+    const unsubs = [
+      subscribe(EVENT_TYPES.ASSIGNMENT_CREATED, (assignment) => {      
+        const { assignments } = dataRef.current;
+        
+        if (assignments.some(a => a.id === assignment.id)) return;
+        
+        const updated = [assignment, ...assignments];
+        dataRef.current.assignments = updated;
+        setState(prev => ({ ...prev, assignments: updated }));
+      }),
+      subscribe(EVENT_TYPES.TASK_DELETED, (deletedTaskId) => {
+        const { assignments } = dataRef.current;
+        const updated = assignments.filter(a => a.taskId !== deletedTaskId);
+        dataRef.current.assignments = updated;
+        setState(prev => ({ ...prev, assignments: updated }));
+      })
+    ];
     
-    return () => unsub();
+    return () => unsubs.forEach(unsub => unsub());
   }, [ready, subscribe]);
 
   /**
@@ -192,7 +201,7 @@ const AssignmentsPage = () => {
   }
 
   const sortedAssignments = [...filteredAssignments].sort((a, b) => 
-    new Date(b.assignedDate).getTime() - new Date(a.assignedDate).getTime()
+    parseUTCDate(b.assignedDate).getTime() - parseUTCDate(a.assignedDate).getTime()
   );
 
   if (state.loading) {
@@ -402,7 +411,7 @@ const AssignmentsPage = () => {
                     <span className={`text-sm ${
                       darkMode ? 'text-gray-400' : 'text-gray-600'
                     }`}>
-                      {new Date(assignment.assignedDate).toLocaleDateString()}
+                      {parseUTCDate(assignment.assignedDate).toLocaleDateString()}
                     </span>
                   </div>
                 </div>

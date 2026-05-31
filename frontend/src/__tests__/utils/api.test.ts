@@ -6,6 +6,8 @@ import {
   getProfileImageUrl,
   tasksAPI,
   employeesAPI,
+  usersAPI,
+  aiAPI,
 } from "../../utils/api";
 
 describe("utils/api", () => {
@@ -61,6 +63,58 @@ describe("utils/api", () => {
     });
 
     await expect(employeesAPI.getAll()).rejects.toThrow("Nope");
+  });
+
+  it("removeFromCompany appends reason query param", async () => {
+    fetch.mockResolvedValue({
+      ok: true,
+      headers: { get: () => "application/json" },
+      json: async () => ({}),
+      text: async () => "",
+      status: 200,
+      statusText: "OK",
+    });
+
+    await usersAPI.removeFromCompany("u1", "BLOCKED");
+
+    const [url, opts] = fetch.mock.calls[0];
+    expect(url).toContain("/users/u1/remove-from-company?reason=BLOCKED");
+    expect(opts.method).toBe("PATCH");
+  });
+
+  it("joinCompany posts company code payload", async () => {
+    fetch.mockResolvedValue({
+      ok: true,
+      headers: { get: () => "application/json" },
+      json: async () => ({ id: "u1" }),
+      text: async () => "",
+      status: 200,
+      statusText: "OK",
+    });
+
+    await usersAPI.joinCompany("u1", "CODE123");
+
+    const [, opts] = fetch.mock.calls[0];
+    expect(opts.method).toBe("POST");
+    expect(JSON.parse(opts.body)).toEqual({ companyCode: "CODE123" });
+  });
+
+  it("prioritizeBacklog posts task list", async () => {
+    fetch.mockResolvedValue({
+      ok: true,
+      headers: { get: () => "application/json" },
+      json: async () => ({ prioritized: [] }),
+      text: async () => "",
+      status: 200,
+      statusText: "OK",
+    });
+
+    const tasks = [{ title: "Task 1" }];
+    await aiAPI.prioritizeBacklog(tasks);
+
+    const [url, opts] = fetch.mock.calls[0];
+    expect(url).toContain("/ai/task-analysis/prioritize-backlog");
+    expect(JSON.parse(opts.body)).toEqual(tasks);
   });
 });
 

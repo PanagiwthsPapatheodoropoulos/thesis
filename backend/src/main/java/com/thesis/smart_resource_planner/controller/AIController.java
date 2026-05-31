@@ -398,6 +398,35 @@ public class AIController {
     }
 
     /**
+     * Prioritizes a backlog of tasks using AI analysis.
+     *
+     * @param tasks       List of task objects (title, description, optional task_id).
+     * @param currentUser Authenticated user principal.
+     * @param authHeader  HTTP Authorization header.
+     * @return ResponseEntity with prioritized task list.
+     */
+    @PostMapping("/task-analysis/prioritize-backlog")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    public ResponseEntity<Map<String, Object>> prioritizeBacklog(
+            @RequestBody List<Map<String, Object>> tasks,
+            @AuthenticationPrincipal UserPrincipal currentUser,
+            @RequestHeader("Authorization") String authHeader) {
+        try {
+            String token = authHeader.replace("Bearer ", "");
+
+            Map<String, Object> result = aiServiceClient.prioritizeBacklog(
+                    tasks,
+                    token,
+                    currentUser.getCompanyId());
+
+            return ResponseEntity.ok(result != null ? result : Map.of("prioritized", List.of(), "total_tasks", 0));
+
+        } catch (Exception e) {
+            return ResponseEntity.ok(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
      * Extracts skills from the provided text payload.
      *
      * @param request     Map containing the text to extract skills from.
@@ -439,6 +468,35 @@ public class AIController {
                     .body(Map.of(
                             "error", "Skill extraction failed",
                             "message", e.getMessage()));
+        }
+    }
+
+    /**
+     * Suggests missing skills for a team based on backlog tasks and existing skills.
+     *
+     * @param request     Map containing team_tasks and existing_skills lists.
+     * @param currentUser Authenticated user principal.
+     * @param authHeader  HTTP Authorization header.
+     * @return ResponseEntity containing skill suggestions.
+     */
+    @PostMapping("/skills/suggest-for-team")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    public ResponseEntity<Map<String, Object>> suggestTeamSkills(
+            @RequestBody Map<String, Object> request,
+            @AuthenticationPrincipal UserPrincipal currentUser,
+            @RequestHeader("Authorization") String authHeader) {
+        try {
+            String token = authHeader.replace("Bearer ", "");
+
+            Map<String, Object> result = aiServiceClient.suggestTeamSkills(
+                    request,
+                    token,
+                    currentUser.getCompanyId());
+
+            return ResponseEntity.ok(result != null ? result : Map.of("suggestions", List.of(), "total_suggestions", 0));
+
+        } catch (Exception e) {
+            return ResponseEntity.ok(Map.of("error", e.getMessage()));
         }
     }
 

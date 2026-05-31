@@ -566,7 +566,7 @@ class HybridDurationPredictor:
         
         # Base duration adjusted by complexity and skill load
         base = {'LOW': 3, 'MEDIUM': 8, 'HIGH': 12, 'CRITICAL': 16}.get(priority, 8)
-        predicted = base * (0.5 + complexity * 1.5) * (1.0 + min(skills * 0.1, 0.5))
+        predicted = base * (0.5 + complexity * 1.5) * (1.0 + min(skills * 0.05, 0.4))
         
         # Apply a fixed variance for fallback predictions
         variance = predicted * 0.4

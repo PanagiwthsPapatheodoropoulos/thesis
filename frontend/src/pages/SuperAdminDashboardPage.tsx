@@ -15,6 +15,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../components/Toast';
+import { parseUTCDate } from '../utils/dateUtils';
 
 
 /**
@@ -667,7 +668,7 @@ const formatCellValue = (value: any, column: string): React.ReactNode => {
   if (value === null || value === undefined) return <span className="text-slate-600">-</span>;
   
   if (column === 'dueDate' || column === 'createdAt') {
-    return <span className="font-mono text-xs opacity-80">{new Date(value).toLocaleDateString()}</span>;
+    return <span className="font-mono text-xs opacity-80">{parseUTCDate(value).toLocaleDateString()}</span>;
   }
   
   if (column === 'status') {

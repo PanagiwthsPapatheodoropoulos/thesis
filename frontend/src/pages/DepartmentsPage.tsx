@@ -4,7 +4,7 @@
  */
 //src/pages/DepartmentsPage.jsx
 import React, { useState, useEffect } from 'react';
-import { Building2, Users, Search, ChevronDown, ChevronUp, Plus, X, Trash2, User } from 'lucide-react';
+import { Building2, Users, Search, ChevronDown, ChevronUp, Plus, X, Trash2, User, GitCommit } from 'lucide-react';
 import { departmentsAPI } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -102,6 +102,19 @@ const DepartmentsPage = () => {
       } catch (error: any) {
         showToast('Error deleting department: ' + error.message, 'error');
       }
+    }
+  };
+
+  /**
+   * Toggles development/git info access for the specified department.
+   */
+  const handleToggleDevInfo = async (name: string, currentVal: boolean) => {
+    try {
+      await departmentsAPI.toggleDevInfo(name, !currentVal);
+      showToast(`Updated Git access for ${name}`, 'success');
+      fetchDepartments();
+    } catch (error: any) {
+      showToast('Error updating Git access: ' + error.message, 'error');
     }
   };
 
@@ -241,10 +254,42 @@ const DepartmentsPage = () => {
                   <ChevronDown className="w-5 h-5 text-gray-400" />
                 )}
               </button>
+
+              <div className="flex items-center gap-3 px-3 flex-shrink-0">
+                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${
+                  dept.devInfoEnabled 
+                    ? darkMode 
+                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25' 
+                      : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    : darkMode 
+                      ? 'bg-gray-800 text-gray-500 border-gray-700' 
+                      : 'bg-gray-100 text-gray-400 border-gray-200'
+                }`}>
+                  <GitCommit className="w-3.5 h-3.5" />
+                  {dept.devInfoEnabled ? 'Git Access' : 'No Git Access'}
+                </span>
+                {canManage && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleToggleDevInfo(dept.name, dept.devInfoEnabled);
+                    }}
+                    className={`px-2.5 py-1 rounded text-xs font-semibold transition ${
+                      dept.devInfoEnabled
+                        ? 'bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-300 dark:hover:bg-red-900/50'
+                        : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-300 dark:hover:bg-indigo-900/50'
+                    }`}
+                    title={dept.devInfoEnabled ? "Revoke Dev/Git Access" : "Grant Dev/Git Access"}
+                  >
+                    {dept.devInfoEnabled ? "Revoke" : "Grant"}
+                  </button>
+                )}
+              </div>
+
               {canManage && (
                 <button
-                  onClick={() => handleDeleteDepartment(dept.name)}
-                  className={`ml-4 p-2 rounded-lg transition ${
+                  onClick={(e) => { e.stopPropagation(); handleDeleteDepartment(dept.name); }}
+                  className={`ml-2 p-2 rounded-lg transition ${
                     darkMode 
                       ? 'text-red-400 hover:bg-red-900/20' 
                       : 'text-red-600 hover:bg-red-50'

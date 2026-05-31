@@ -52,4 +52,14 @@ public class TaskDTO {
 
     @Builder.Default
     private Boolean requiresApproval = false;
+
+    private String githubRepo;
+    private String branches;
+    private String activeBranch;
+    private String customCommits;
+
+    private UUID completedById;
+    private String completedByName;
+    private UUID pendingById;
+    private String pendingByName;
 }

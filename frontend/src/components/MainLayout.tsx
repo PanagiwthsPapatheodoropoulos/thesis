@@ -14,6 +14,7 @@ import { notificationsAPI, chatAPI, employeesAPI, tasksAPI, assignmentsAPI } fro
 import { useTheme } from '../contexts/ThemeContext';
 import { useWebSocket, EVENT_TYPES } from '../contexts/WebSocketProvider';
 import PromotionModal from './PromotionModal';
+import { formatDate } from '../utils/dateUtils';
 import type { Notification as AppNotification } from '../types';
 
 
@@ -287,11 +288,16 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                         console.error('Error checking assignment status:', error);
                     }
                 }
+            }),
+            
+            // Listen for task deletion to refresh badges
+            subscribe(EVENT_TYPES.TASK_DELETED, () => {
+                fetchCounts();
             })
         ];
         
         return () => unsubs.forEach(fn => fn());
-    }, [ready, subscribe, user?.role, user?.id, location.pathname]);
+    }, [ready, subscribe, user?.role, user?.id, location.pathname, fetchCounts]);
 
     // Focus handler
     useEffect(() => {
@@ -605,7 +611,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                                                                         <p className={`text-xs mt-1 ${
                                                                             darkMode ? 'text-gray-500' : 'text-gray-400'
                                                                         }`}>
-                                                                            {new Date(notif.createdAt).toLocaleString()}
+                                                                            {formatDate(notif.createdAt)}
                                                                         </p>
                                                                     </div>
                                                                     <button

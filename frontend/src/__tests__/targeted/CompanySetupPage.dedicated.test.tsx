@@ -12,7 +12,13 @@ vi.mock("../../utils/api", () => ({
     register: vi.fn(),
   },
 }));
-
+vi.mock("../../contexts/AuthContext", () => ({
+  useAuth: () => ({
+    user: null,
+    updateUser: vi.fn(),
+    logout: vi.fn(),
+  }),
+}));
 const renderWithRouter = () => {
   return render(
     <MemoryRouter initialEntries={["/"]}>

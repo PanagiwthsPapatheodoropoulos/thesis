@@ -56,10 +56,10 @@ const ChatbotWidget: React.FC = () => {
     setIsMinimized(false);
   }, [user?.id, user?.username, user?.role]);
 
-  // Keep retrying every 3 seconds until connected
+  // Keep retrying every 30 seconds until connected, but only check periodic health when isOpen is true
   useEffect(() => {
     let isComponentMounted = true;
-    let checkInterval;
+    let checkInterval: any = null;
     
     const checkHealth = async () => {
       if (!isComponentMounted) return;
@@ -71,9 +71,11 @@ const ChatbotWidget: React.FC = () => {
           setConnectionStatus('connected');
           setRetryCount(0);
           
-          // Once connected, check every 60 seconds
+          // Once connected, check every 60 seconds IF open
           if (checkInterval) clearInterval(checkInterval);
-          checkInterval = setInterval(checkHealth, 60000);
+          if (isOpen) {
+            checkInterval = setInterval(checkHealth, 60000);
+          }
         } else {
           throw new Error('Not healthy');
         }
@@ -83,9 +85,11 @@ const ChatbotWidget: React.FC = () => {
         setConnectionStatus('checking');
         setRetryCount(prev => prev + 1);
         
-        // Keep trying every 3 seconds
+        // Keep trying every 30 seconds if open or initially checking
         if (checkInterval) clearInterval(checkInterval);
-        checkInterval = setInterval(checkHealth, 3000);
+        if (isOpen) {
+          checkInterval = setInterval(checkHealth, 30000);
+        }
       }
     };
 
@@ -95,7 +99,7 @@ const ChatbotWidget: React.FC = () => {
       isComponentMounted = false;
       if (checkInterval) clearInterval(checkInterval);
     };
-  }, []);
+  }, [isOpen]);
 
   /**
    * Manually triggers an immediate health check and resets the retry counter.
@@ -205,98 +209,126 @@ const ChatbotWidget: React.FC = () => {
   };
 
   /**
-   * Toggles microphone recording. On first call, requests microphone access
-   * and starts recording. On second call (or after 10 seconds), stops recording
-   * and sends the audio blob to the backend transcription endpoint.
+   * Toggles voice recognition using the browser-native Web Speech API.
+   * Provides real-time transcription directly in the browser — no backend endpoint needed.
+   *
+   * NOTE: The Web Speech API works on localhost without HTTPS in Chrome and Edge.
+   * For production, HTTPS is required. Safari has limited support.
    */
-  const handleVoiceInput = async () => {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      showToast('Your browser does not support audio recording.', 'warning');
+  const handleVoiceInput = () => {
+    // Check browser compatibility
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      showToast(
+        'Your browser does not support speech recognition. Please use Chrome or Edge.',
+        'warning'
+      );
       return;
     }
 
-    // If already recording, stop
+    // If already listening, stop
     if (isListening && recognitionRef.current) {
       recognitionRef.current.stop();
       return;
     }
 
-    try {
-      // Request microphone access
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      
-      const mediaRecorder = new MediaRecorder(stream);
-      recognitionRef.current = mediaRecorder;
-      const audioChunks = [];
+    // Create a new SpeechRecognition instance
+    const recognition = new SpeechRecognition();
+    recognitionRef.current = recognition;
 
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunks.push(event.data);
-        }
-      };
+    // Configuration
+    recognition.lang = 'en-US';
+    recognition.interimResults = true;   // Show partial results in real-time
+    recognition.continuous = true;       // Keep listening until explicitly stopped
+    recognition.maxAlternatives = 1;
 
-      mediaRecorder.onstop = async () => {
-        
-        // Create audio blob
-        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-        
-        // Send to backend for transcription
-        const formData = new FormData();
-        formData.append('audio', audioBlob, 'recording.wav');
-        
-        try {
-          setIsTyping(true);
-          
-          const response = await fetch('http://localhost:5000/api/ai/voice/transcribe', {
-            method: 'POST',
-            body: formData
-          });
-          
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-          }
-          
-          const data = await response.json();
-          
-          if (data.text && data.text.trim()) {
-            setInput(prev => prev + (prev ? " " : "") + data.text);
-          } else {
-            showToast('No speech detected. Please try again.', 'warning');
-          }
-          
-        } catch (error: any) {
-          showToast('HTTPS needed. Action blocked by browsers.', 'error');
-        } finally {
-          setIsTyping(false);
-        }
-        
-        // Cleanup
-        stream.getTracks().forEach(track => track.stop());
-        setIsListening(false);
-        recognitionRef.current = null;
-      };
+    // Auto-stop timeout (30 seconds of total listening)
+    let silenceTimeout: ReturnType<typeof setTimeout> | null = null;
+    const MAX_LISTEN_MS = 30_000;
 
-      // Start recording
-      mediaRecorder.start();
-      setIsListening(true);
-      
-      // Auto-stop after 10 seconds (optional)
-      setTimeout(() => {
-        if (mediaRecorder.state === 'recording') {
-          mediaRecorder.stop();
-        }
-      }, 10000);
-
-    } catch (error: any) {     
-      if (error.name === 'NotAllowedError') {
-        showToast('Microphone access denied. Please allow microphone access in your browser settings.', 'warning');
-      } else if (error.name === 'NotFoundError') {
-        showToast('No microphone found. Please connect a microphone and try again.', 'warning');
-      } else {
-        showToast('Could not access microphone: ' + error.message, 'error');
+    const autoStopTimeout = setTimeout(() => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
       }
-      
+    }, MAX_LISTEN_MS);
+
+    // Reset silence timer each time we receive a speech result
+    const resetSilenceTimer = () => {
+      if (silenceTimeout) clearTimeout(silenceTimeout);
+      silenceTimeout = setTimeout(() => {
+        if (recognitionRef.current) {
+          recognitionRef.current.stop();
+        }
+      }, 5_000); // Stop after 5 seconds of silence
+    };
+
+    // Handle real-time results
+    recognition.onresult = (event: any) => {
+      resetSilenceTimer();
+
+      let interimTranscript = '';
+      let finalTranscript = '';
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscript += transcript;
+        } else {
+          interimTranscript += transcript;
+        }
+      }
+
+      // Append final transcript to the input
+      if (finalTranscript) {
+        setInput(prev => prev + (prev ? ' ' : '') + finalTranscript.trim());
+      }
+    };
+
+    recognition.onerror = (event: any) => {
+      if (silenceTimeout) clearTimeout(silenceTimeout);
+      clearTimeout(autoStopTimeout);
+
+      switch (event.error) {
+        case 'not-allowed':
+          showToast(
+            'Microphone access denied. Please allow microphone access in your browser settings.',
+            'warning'
+          );
+          break;
+        case 'no-speech':
+          showToast('No speech detected. Please try again.', 'warning');
+          break;
+        case 'network':
+          showToast(
+            'Network error during speech recognition. Check your internet connection.',
+            'error'
+          );
+          break;
+        default:
+          showToast(`Speech recognition error: ${event.error}`, 'error');
+      }
+
       setIsListening(false);
+      recognitionRef.current = null;
+    };
+
+    recognition.onend = () => {
+      if (silenceTimeout) clearTimeout(silenceTimeout);
+      clearTimeout(autoStopTimeout);
+      setIsListening(false);
+      recognitionRef.current = null;
+    };
+
+    // Start recognition
+    try {
+      recognition.start();
+      setIsListening(true);
+      resetSilenceTimer();
+    } catch (error: any) {
+      showToast('Could not start speech recognition: ' + error.message, 'error');
+      setIsListening(false);
+      recognitionRef.current = null;
     }
   };
 
@@ -508,7 +540,7 @@ const ChatbotWidget: React.FC = () => {
                     value={input}
                     onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setInput(e.target.value)}
                     onKeyPress={handleKeyPress}
-                    placeholder={isListening ? "🎤 Listening... (click mic to stop)" : "Ask me anything..."}
+                    placeholder={isListening ? "🎤 Listening... speak now (words appear as you talk)" : "Ask me anything..."}
                     disabled={isTyping || connectionStatus !== 'connected'}
                     className={`w-full bg-slate-800 border ${
                       isListening ? 'border-red-500 ring-2 ring-red-500/50' : 'border-purple-500/20'

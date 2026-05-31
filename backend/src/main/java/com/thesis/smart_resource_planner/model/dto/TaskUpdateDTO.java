@@ -34,4 +34,9 @@ public class TaskUpdateDTO {
     private LocalDateTime completedDate;
 
     private BigDecimal complexityScore;
+
+    private String githubRepo;
+    private String branches;
+    private String activeBranch;
+    private String customCommits;
 }

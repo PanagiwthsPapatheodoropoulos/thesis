@@ -215,10 +215,10 @@ const TaskSkillsExtractor: React.FC<TaskSkillsExtractorProps> = ({
               setError(null);
             }}
             placeholder="Paste task description or job requirements here..."
-            className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none resize-none ${
+            className={`w-full px-3 py-2 text-sm border rounded-lg outline-none resize-none transition-all duration-200 ${
               darkMode
-                ? 'bg-gray-800 border-gray-600 text-gray-100 placeholder-gray-400'
-                : 'bg-white border-purple-300 text-gray-900 placeholder-gray-500'
+                ? 'bg-gray-800 border-gray-600 text-gray-100 placeholder-gray-400 hover:border-gray-500 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/15'
+                : 'bg-white border-purple-300 text-gray-900 placeholder-gray-500 hover:border-purple-400 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10'
             }`}
             rows={5}
             disabled={loading}

@@ -371,7 +371,7 @@ class BackendClient:
             
             params = {
                 "employeeIds": employee_ids,
-                "format": "id"
+                "format": "simple"
             }
             
             # Execute batch request for performance optimization

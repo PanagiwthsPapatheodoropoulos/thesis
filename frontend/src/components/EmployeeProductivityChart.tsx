@@ -7,6 +7,7 @@
  */
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { parseUTCDate } from '../utils/dateUtils';
 import { TrendingUp, Calendar, Activity, Award, Target } from 'lucide-react';
 import type { EmployeeProductivityChartProps } from '../types';
 
@@ -140,8 +141,8 @@ const EmployeeProductivityChart: React.FC<EmployeeProductivityChartProps> = ({ e
 
     // Count tasks by week and status
     tasks.forEach(task => {
-      const completedDate = task.completedDate ? new Date(task.completedDate) : null;
-      const createdDate = task.createdAt ? new Date(task.createdAt) : null;
+      const completedDate = task.completedDate ? parseUTCDate(task.completedDate) : null;
+      const createdDate = task.createdAt ? parseUTCDate(task.createdAt) : null;
       
       // Use completed date if available, otherwise created date
       const relevantDate = completedDate || createdDate;

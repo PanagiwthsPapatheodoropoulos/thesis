@@ -9,6 +9,7 @@ const state = vi.hoisted(() => ({
   logout: vi.fn(),
   getByUserId: vi.fn(),
   getNotifications: vi.fn(),
+  joinCompany: vi.fn(),
   subscribe: vi.fn(() => () => {}),
 }));
 
@@ -27,6 +28,9 @@ vi.mock("../../utils/api", () => ({
   },
   notificationsAPI: {
     getByUser: state.getNotifications,
+  },
+  usersAPI: {
+    joinCompany: state.joinCompany,
   },
 }));
 
@@ -48,6 +52,7 @@ describe("UserDashboardPage dedicated", () => {
     state.getNotifications.mockResolvedValue([
       { id: "n1", title: "Hi", message: "Waiting", createdAt: new Date().toISOString(), type: "INFO" },
     ]);
+    state.joinCompany.mockResolvedValue({});
     state.subscribe.mockImplementation(() => () => {});
     navigate.mockReset();
   });
@@ -86,6 +91,58 @@ describe("UserDashboardPage dedicated", () => {
     fireEvent.click(screen.getByText(/Proceed to Login/i));
     expect(state.logout).toHaveBeenCalled();
     expect(navigate).toHaveBeenCalledWith("/login");
+  });
+
+  it("shows join rejection modal and retries join", async () => {
+    state.getNotifications.mockResolvedValueOnce([
+      {
+        id: "n1",
+        title: "Rejected",
+        message: "Denied",
+        createdAt: new Date().toISOString(),
+        type: "JOIN_REJECTED",
+        read: false,
+      },
+    ]);
+
+    render(<UserDashboardPage />);
+
+    await waitFor(() => expect(screen.getByText(/Access Denied/i)).toBeInTheDocument());
+    fireEvent.change(screen.getByPlaceholderText(/Enter 10-character code/i), {
+      target: { value: "abc123" },
+    });
+    fireEvent.click(screen.getByText(/Retry Join/i));
+
+    await waitFor(() => expect(state.joinCompany).toHaveBeenCalledWith("u1", "ABC123"));
+    expect(globalThis.__showToast).toHaveBeenCalled();
+  });
+
+  it("shows error toast when join retry fails", async () => {
+    state.getNotifications.mockResolvedValueOnce([
+      {
+        id: "n1",
+        title: "Rejected",
+        message: "Denied",
+        createdAt: new Date().toISOString(),
+        type: "JOIN_REJECTED",
+        read: false,
+      },
+    ]);
+    state.joinCompany.mockRejectedValueOnce(new Error("Invalid code"));
+
+    render(<UserDashboardPage />);
+
+    await waitFor(() => expect(screen.getByText(/Access Denied/i)).toBeInTheDocument());
+    fireEvent.change(screen.getByPlaceholderText(/Enter 10-character code/i), {
+      target: { value: "badcode" },
+    });
+    fireEvent.click(screen.getByText(/Retry Join/i));
+
+    await waitFor(() => expect(state.joinCompany).toHaveBeenCalledWith("u1", "BADCODE"));
+    await waitFor(() =>
+      expect(globalThis.__showToast).toHaveBeenCalledWith("Invalid code", "error"),
+    );
+    expect(screen.getByText(/Access Denied/i)).toBeInTheDocument();
   });
 });
 

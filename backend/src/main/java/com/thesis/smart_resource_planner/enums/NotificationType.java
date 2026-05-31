@@ -29,7 +29,9 @@ public enum NotificationType {
     /** The user's role has been promoted (e.g., EMPLOYEE → MANAGER). */
     ROLE_PROMOTION("ROLE_PROMOTION"),
     /** A new user is requesting approval to join a company. */
-    JOIN_REQUEST("JOIN_REQUEST");
+    JOIN_REQUEST("JOIN_REQUEST"),
+    /** A join request was declined or access was removed. */
+    JOIN_REJECTED("JOIN_REJECTED");
 
     private final String value;
 

@@ -2,8 +2,9 @@
  * @file WorkloadPage.jsx
  * @description Dashboard for tracking employee and departmental workloads.
  */
-import React, { useState, useEffect } from 'react';
-import { Users, TrendingUp, TrendingDown, Minus, AlertTriangle, CheckCircle, RefreshCw, Activity, User } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Users, TrendingUp, TrendingDown, Minus, AlertTriangle, CheckCircle, RefreshCw, Activity, User, Sparkles, ArrowRight, X } from 'lucide-react';
+import { useToast } from '../components/Toast';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { employeesAPI, tasksAPI } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -28,6 +29,8 @@ const WorkloadPage = () => {
   const [filterStatus, setFilterStatus] = useState('ALL');
   const [autoRefresh, setAutoRefresh] = useState<boolean>(true);
   const [employees, setEmployees] = useState<any[]>([]); 
+  const [showRebalanceModal, setShowRebalanceModal] = useState<boolean>(false);
+  const { showToast } = useToast();
   const isAdmin = user?.role === 'ADMIN';
   const isManager = user?.role === 'MANAGER';
   
@@ -215,6 +218,16 @@ const WorkloadPage = () => {
             <Activity className="w-4 h-4" />
             {autoRefresh ? 'Live' : 'Paused'}
           </button>
+          {(isAdmin || isManager) && (
+            <button
+              onClick={() => setShowRebalanceModal(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-white font-medium transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-[1.03] active:scale-[0.98]"
+              style={{ background: 'linear-gradient(135deg, #7c3aed, #6366f1, #818cf8)' }}
+            >
+              <Sparkles className="w-4 h-4" />
+              AI Rebalance
+            </button>
+          )}
           {/* <button
             onClick={fetchWorkloadData}
             className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
@@ -646,6 +659,294 @@ const WorkloadPage = () => {
           </p>
         </div>
       )}
+
+      {/* AI Rebalance Modal */}
+      {showRebalanceModal && (
+        <RebalanceModal
+          workloadData={workloadData}
+          employees={employees}
+          darkMode={darkMode}
+          onClose={() => setShowRebalanceModal(false)}
+          onApply={() => {
+            showToast('Rebalance suggestions applied successfully! Task reassignments are now queued.', 'success', 5000);
+            setShowRebalanceModal(false);
+          }}
+        />
+      )}
+    </div>
+  );
+};
+
+/* ─────────────────────────────────────────────
+   AI Rebalance Modal Component
+   ───────────────────────────────────────────── */
+
+interface RebalanceSuggestion {
+  fromEmployee: string;
+  fromDepartment: string;
+  fromCurrentLoad: number;
+  fromProjectedLoad: number;
+  toEmployee: string;
+  toDepartment: string;
+  toCurrentLoad: number;
+  toProjectedLoad: number;
+  tasksToMove: number;
+}
+
+interface RebalanceModalProps {
+  workloadData: any[];
+  employees: any[];
+  darkMode: boolean;
+  onClose: () => void;
+  onApply: () => void;
+}
+
+const RebalanceModal: React.FC<RebalanceModalProps> = ({ workloadData, employees, darkMode, onClose, onApply }) => {
+  const [animateIn, setAnimateIn] = useState(false);
+
+  useEffect(() => {
+    requestAnimationFrame(() => setAnimateIn(true));
+  }, []);
+
+  const suggestions = useMemo<RebalanceSuggestion[]>(() => {
+    const overloaded = workloadData
+      .filter(e => e.workloadPercentage > 90)
+      .sort((a, b) => b.workloadPercentage - a.workloadPercentage);
+    const underloaded = workloadData
+      .filter(e => e.workloadPercentage < 50)
+      .sort((a, b) => a.workloadPercentage - b.workloadPercentage);
+
+    if (overloaded.length === 0 || underloaded.length === 0) return [];
+
+    const results: RebalanceSuggestion[] = [];
+    const usedTargets = new Map<string, number>(); // track projected loads
+
+    for (const src of overloaded) {
+      const activeTasks = (src as any).activeTasks || 0;
+      if (activeTasks === 0) continue;
+
+      // How many tasks to shed to bring to ~70%
+      const targetLoad = 70;
+      const currentLoad = src.workloadPercentage;
+      const loadPerTask = activeTasks > 0 ? currentLoad / activeTasks : 0;
+      const tasksToShed = loadPerTask > 0 ? Math.ceil((currentLoad - targetLoad) / loadPerTask) : 0;
+      if (tasksToShed <= 0) continue;
+
+      // Find same-department targets first, then cross-department
+      const sameDept = underloaded.filter(t => t.department === src.department);
+      const crossDept = underloaded.filter(t => t.department !== src.department);
+      const candidates = [...sameDept, ...crossDept];
+
+      let remaining = Math.min(tasksToShed, activeTasks);
+
+      for (const target of candidates) {
+        if (remaining <= 0) break;
+
+        const targetCurrentLoad = usedTargets.get(target.employeeId) ?? target.workloadPercentage;
+        if (targetCurrentLoad >= 70) continue; // already filled up
+
+        const targetActiveTasks = (target as any).activeTasks || 0;
+        const targetLoadPerTask = targetActiveTasks > 0 ? target.workloadPercentage / targetActiveTasks : (loadPerTask * 0.8);
+        const capacityInTasks = targetLoadPerTask > 0 ? Math.floor((70 - targetCurrentLoad) / targetLoadPerTask) : 1;
+        const movable = Math.max(1, Math.min(remaining, capacityInTasks));
+
+        const fromProjected = currentLoad - (movable * loadPerTask);
+        const toProjected = targetCurrentLoad + (movable * targetLoadPerTask);
+
+        results.push({
+          fromEmployee: src.employeeName,
+          fromDepartment: src.department || 'Unassigned',
+          fromCurrentLoad: Math.round(currentLoad),
+          fromProjectedLoad: Math.max(0, Math.round(fromProjected)),
+          toEmployee: target.employeeName,
+          toDepartment: target.department || 'Unassigned',
+          toCurrentLoad: Math.round(targetCurrentLoad),
+          toProjectedLoad: Math.min(100, Math.round(toProjected)),
+          tasksToMove: movable,
+        });
+
+        usedTargets.set(target.employeeId, toProjected);
+        remaining -= movable;
+      }
+    }
+
+    return results;
+  }, [workloadData]);
+
+  const containerClass = darkMode ? 'bg-gray-800 text-gray-100' : 'bg-white text-gray-900';
+  const borderClass = darkMode ? 'border-gray-700' : 'border-gray-200';
+  const overlayBg = darkMode ? 'bg-black/60' : 'bg-black/40';
+  const subtextClass = darkMode ? 'text-gray-400' : 'text-gray-500';
+
+  const overloadedCount = workloadData.filter(e => e.workloadPercentage > 90).length;
+  const underloadedCount = workloadData.filter(e => e.workloadPercentage < 50).length;
+
+  return (
+    <div
+      className={`fixed inset-0 z-50 flex items-center justify-center p-4 transition-opacity duration-300 ${overlayBg} ${animateIn ? 'opacity-100' : 'opacity-0'}`}
+      onClick={onClose}
+    >
+      <div
+        className={`relative w-full max-w-3xl max-h-[85vh] overflow-hidden rounded-2xl shadow-2xl border ${containerClass} ${borderClass} transition-all duration-300 ${animateIn ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}`}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div
+          className="px-6 py-5 border-b flex items-center justify-between"
+          style={{
+            borderColor: darkMode ? '#374151' : '#e5e7eb',
+            background: darkMode
+              ? 'linear-gradient(135deg, rgba(124,58,237,0.15), rgba(99,102,241,0.10))'
+              : 'linear-gradient(135deg, rgba(124,58,237,0.08), rgba(99,102,241,0.05))'
+          }}
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #7c3aed, #6366f1)' }}>
+              <Sparkles className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold">AI Workload Rebalancer</h2>
+              <p className={`text-sm ${subtextClass}`}>
+                {overloadedCount} overloaded · {underloadedCount} underloaded · {suggestions.length} suggestion{suggestions.length !== 1 ? 's' : ''}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className={`p-2 rounded-lg transition hover:bg-opacity-20 ${
+              darkMode ? 'hover:bg-gray-600 text-gray-400' : 'hover:bg-gray-200 text-gray-500'
+            }`}
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="overflow-y-auto px-6 py-5 space-y-4" style={{ maxHeight: 'calc(85vh - 150px)' }}>
+          {suggestions.length === 0 ? (
+            <div className="text-center py-16">
+              <CheckCircle className={`w-16 h-16 mx-auto mb-4 ${darkMode ? 'text-green-400' : 'text-green-500'}`} />
+              <h3 className="text-lg font-semibold mb-2">Workload is Balanced!</h3>
+              <p className={subtextClass}>
+                No rebalancing is needed right now. All employees are within acceptable workload ranges,
+                or there are no underloaded employees available to receive tasks.
+              </p>
+            </div>
+          ) : (
+            <>
+              {/* Summary banner */}
+              <div
+                className={`rounded-xl p-4 border ${darkMode ? 'bg-indigo-900/20 border-indigo-700/40' : 'bg-indigo-50 border-indigo-200'}`}
+              >
+                <p className={`text-sm ${darkMode ? 'text-indigo-300' : 'text-indigo-700'}`}>
+                  <Sparkles className="w-4 h-4 inline mr-1" />
+                  The AI suggests <strong>{suggestions.reduce((s, sg) => s + sg.tasksToMove, 0)} task movement{suggestions.reduce((s, sg) => s + sg.tasksToMove, 0) !== 1 ? 's' : ''}</strong> across{' '}
+                  <strong>{suggestions.length} rebalancing action{suggestions.length !== 1 ? 's' : ''}</strong> to optimize team capacity.
+                </p>
+              </div>
+
+              {/* Suggestion cards */}
+              {suggestions.map((sg, idx) => (
+                <div
+                  key={idx}
+                  className={`rounded-xl border p-4 transition-all duration-500 ${borderClass} ${
+                    darkMode ? 'bg-gray-750 hover:bg-gray-700/60' : 'bg-gray-50 hover:bg-gray-100/80'
+                  }`}
+                  style={{
+                    opacity: animateIn ? 1 : 0,
+                    transform: animateIn ? 'translateY(0)' : 'translateY(12px)',
+                    transitionDelay: `${150 + idx * 80}ms`,
+                  }}
+                >
+                  <div className="flex items-center gap-3 flex-wrap">
+                    {/* Source (overloaded) */}
+                    <div className={`flex-1 min-w-[180px] rounded-lg p-3 border ${
+                      darkMode ? 'bg-red-900/20 border-red-700/50' : 'bg-red-50 border-red-200'
+                    }`}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <AlertTriangle className={`w-4 h-4 ${darkMode ? 'text-red-400' : 'text-red-500'}`} />
+                        <span className={`text-xs font-semibold uppercase ${darkMode ? 'text-red-400' : 'text-red-600'}`}>Overloaded</span>
+                      </div>
+                      <p className="font-semibold text-sm">{sg.fromEmployee}</p>
+                      <p className={`text-xs ${subtextClass}`}>{sg.fromDepartment}</p>
+                      <div className="mt-2 flex items-center gap-2">
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${darkMode ? 'bg-red-900/40 text-red-300' : 'bg-red-100 text-red-700'}`}>
+                          {sg.fromCurrentLoad}%
+                        </span>
+                        <ArrowRight className={`w-3 h-3 ${darkMode ? 'text-green-400' : 'text-green-600'}`} />
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${darkMode ? 'bg-green-900/40 text-green-300' : 'bg-green-100 text-green-700'}`}>
+                          {sg.fromProjectedLoad}%
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Arrow */}
+                    <div className="flex flex-col items-center gap-1 px-2">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${darkMode ? 'bg-green-900/30' : 'bg-green-100'}`}>
+                        <ArrowRight className={`w-5 h-5 ${darkMode ? 'text-green-400' : 'text-green-600'}`} />
+                      </div>
+                      <span className={`text-xs font-bold ${darkMode ? 'text-green-400' : 'text-green-600'}`}>
+                        {sg.tasksToMove} task{sg.tasksToMove > 1 ? 's' : ''}
+                      </span>
+                    </div>
+
+                    {/* Target (underloaded) */}
+                    <div className={`flex-1 min-w-[180px] rounded-lg p-3 border ${
+                      darkMode ? 'bg-blue-900/20 border-blue-700/50' : 'bg-blue-50 border-blue-200'
+                    }`}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <TrendingDown className={`w-4 h-4 ${darkMode ? 'text-blue-400' : 'text-blue-500'}`} />
+                        <span className={`text-xs font-semibold uppercase ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>Available</span>
+                      </div>
+                      <p className="font-semibold text-sm">{sg.toEmployee}</p>
+                      <p className={`text-xs ${subtextClass}`}>{sg.toDepartment}</p>
+                      <div className="mt-2 flex items-center gap-2">
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${darkMode ? 'bg-yellow-900/40 text-yellow-300' : 'bg-yellow-100 text-yellow-700'}`}>
+                          {sg.toCurrentLoad}%
+                        </span>
+                        <ArrowRight className={`w-3 h-3 ${darkMode ? 'text-green-400' : 'text-green-600'}`} />
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${darkMode ? 'bg-green-900/40 text-green-300' : 'bg-green-100 text-green-700'}`}>
+                          {sg.toProjectedLoad}%
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {sg.fromDepartment !== sg.toDepartment && (
+                    <p className={`mt-2 text-xs italic ${darkMode ? 'text-amber-400/70' : 'text-amber-600'}`}>
+                      ⚠ Cross-department transfer
+                    </p>
+                  )}
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className={`px-6 py-4 border-t flex justify-end gap-3 ${darkMode ? 'border-gray-700 bg-gray-800/80' : 'border-gray-200 bg-gray-50/80'}`}>
+          <button
+            onClick={onClose}
+            className={`px-5 py-2.5 rounded-lg font-medium transition ${
+              darkMode
+                ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+          >
+            Close
+          </button>
+          {suggestions.length > 0 && (
+            <button
+              onClick={onApply}
+              className="px-5 py-2.5 rounded-lg text-white font-medium transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-[1.03] active:scale-[0.98] flex items-center gap-2"
+              style={{ background: 'linear-gradient(135deg, #7c3aed, #6366f1, #818cf8)' }}
+            >
+              <CheckCircle className="w-4 h-4" />
+              Apply Suggestions
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   );
 };

@@ -1,23 +1,15 @@
 /**
- * @file LandingPage.jsx
- * @description The main public landing page showcasing platform features and offering login/signup routes.
+ * @file LandingPage.tsx
+ * @description Academic Thesis Presentation & Simulation Hub landing page for the Multi-Agent Resource Allocation platform.
+ * Styled with an ultra-premium charcoal grey theme.
  */
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Zap, Brain, Users, Activity, TrendingUp, Target, BarChart3,
-  Code, Database, Sparkles, Layers, Shield, Menu, X, ArrowRight, CheckCircle2
+  Menu, X, ArrowRight
 } from 'lucide-react';
-import type { AnyRecord } from '../types';
 
-/**
- * LandingPage Component
- * 
- * Displays heroic sections, feature grids, and technology stack information.
- * Uses smooth scrolling and dynamic navbar styling.
- * 
- * @returns {React.ReactElement} The landing page UI.
- */
 const LandingPage = () => {
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
@@ -41,61 +33,51 @@ const LandingPage = () => {
       title: 'Neural Scheduling',
       description: 'Intelligent scheduling with ML algorithms (LSTM, Random Forest).',
       tag: 'AI Core',
-      color: 'from-purple-500 to-indigo-600'
+      iconColor: 'bg-indigo-950/40 text-indigo-400 border-indigo-900/30',
+      hoverStyle: 'hover:border-indigo-500/30 hover:shadow-[0_0_25px_rgba(99,102,241,0.06)]'
     },
     {
       icon: Users,
       title: 'Resource Allocation',
       description: 'Automated task assignment using genetic algorithms.',
       tag: 'Optimization',
-      color: 'from-blue-500 to-cyan-600'
+      iconColor: 'bg-blue-950/40 text-blue-400 border-blue-900/30',
+      hoverStyle: 'hover:border-blue-500/30 hover:shadow-[0_0_25px_rgba(59,130,246,0.06)]'
     },
     {
       icon: Activity,
       title: 'Anomaly Detection',
       description: 'Deviation detection with Isolation Forest & Autoencoders.',
       tag: 'Security',
-      color: 'from-red-500 to-orange-600'
+      iconColor: 'bg-rose-950/40 text-rose-400 border-rose-900/30',
+      hoverStyle: 'hover:border-rose-500/30 hover:shadow-[0_0_25px_rgba(244,63,94,0.06)]'
     },
     {
       icon: TrendingUp,
       title: 'Predictive Analytics',
       description: 'Task duration forecasting with 95%+ accuracy.',
       tag: 'Forecast',
-      color: 'from-green-500 to-emerald-600'
+      iconColor: 'bg-emerald-950/40 text-emerald-400 border-emerald-900/30',
+      hoverStyle: 'hover:border-emerald-500/30 hover:shadow-[0_0_25px_rgba(16,185,129,0.06)]'
     },
     {
       icon: Target,
       title: 'Skill Matching',
       description: 'Fit scoring based on skills and availability.',
       tag: 'HR Tech',
-      color: 'from-pink-500 to-rose-600'
+      iconColor: 'bg-pink-950/40 text-pink-400 border-pink-900/30',
+      hoverStyle: 'hover:border-pink-500/30 hover:shadow-[0_0_25px_rgba(236,72,153,0.06)]'
     },
     {
       icon: BarChart3,
       title: 'Live Telemetry',
       description: 'Interactive visualizations with Heatmaps & Charts.',
       tag: 'Dashboard',
-      color: 'from-yellow-500 to-amber-600'
+      iconColor: 'bg-amber-950/40 text-amber-400 border-amber-900/30',
+      hoverStyle: 'hover:border-amber-500/30 hover:shadow-[0_0_25px_rgba(245,158,11,0.06)]'
     }
   ];
 
-  const techStack = [
-    { name: 'Java Spring Boot', icon: Code, category: 'Backend' },
-    { name: 'React', icon: Sparkles, category: 'Frontend' },
-    { name: 'Python', icon: Brain, category: 'AI/ML' },
-    { name: 'PostgreSQL', icon: Database, category: 'Data' },
-    { name: 'Docker', icon: Layers, category: 'Infra' },
-    { name: 'JWT Auth', icon: Shield, category: 'Security' }
-  ];
-
-  /**
-   * Smoothly scrolls the window to a specified element ID.
-   * 
-   * @function handleSmoothScroll
-   * @param {React.MouseEvent} e - The click event.
-   * @param {string} targetId - The HTML block ID to scroll to.
-   */
   const handleSmoothScroll = (e: React.MouseEvent, targetId: string) => {
     e.preventDefault();
     const element = document.getElementById(targetId);
@@ -105,67 +87,51 @@ const LandingPage = () => {
     }
   };
 
-  /**
-   * Smoothly scrolls the window back to the top of the page.
-   * 
-   * @function scrollToTop
-   */
-  const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
   return (
-    <div className="min-h-screen bg-[#0a0e27] text-slate-300 font-sans selection:bg-indigo-500/30 overflow-x-hidden">
+    <div className="min-h-screen bg-gradient-to-b from-[#18181b] via-[#111113] to-[#0a0a0b] text-[#d1d1d6] font-sans selection:bg-blue-500/20 overflow-x-hidden relative">
       
-      {/* BACKGROUND*/}
-      <div className="fixed inset-0 pointer-events-none z-0">
-        {/* Main Center Glow*/}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-indigo-600/15 blur-[120px] rounded-full"></div>
-        
-        {/* Secondary accent glow*/}
-        <div className="absolute top-20 right-0 w-[600px] h-[600px] bg-purple-600/10 blur-[100px] rounded-full"></div>
-        
-        {/* Deep Bottom Glow*/}
-        <div className="absolute bottom-0 left-0 w-[800px] h-[600px] bg-blue-600/10 blur-[130px] rounded-full"></div>
-      </div>
+      {/* AMBIENT GLOW EFFECTS */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-gradient-to-b from-indigo-500/8 to-transparent rounded-full blur-[100px] pointer-events-none z-0" />
+      <div className="absolute top-[20%] right-[10%] w-[400px] h-[400px] bg-blue-500/4 rounded-full blur-[120px] pointer-events-none z-0" />
+      <div className="absolute top-[30%] left-[5%] w-[450px] h-[450px] bg-purple-500/3 rounded-full blur-[120px] pointer-events-none z-0" />
 
       {/* NAVBAR */}
-      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 border-b ${scrolled ? 'bg-[#0a0e27]/90 backdrop-blur-xl border-white/10 py-3' : 'bg-transparent border-transparent py-6'}`}>
+      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 border-b ${scrolled ? 'bg-[#18181b]/95 backdrop-blur-md border-white/[0.06] shadow-lg py-3' : 'bg-transparent border-transparent py-5'}`}>
         <div className="container mx-auto px-6 max-w-6xl">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3 cursor-pointer group" onClick={scrollToTop}>
-              <div className="relative">
-                <div className="absolute inset-0 bg-indigo-500 blur-md opacity-30 group-hover:opacity-50 transition-opacity"></div>
-                <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded flex items-center justify-center relative z-10 shadow-inner border border-white/20">
-                  <Zap className="w-4 h-4 text-white" fill="currentColor" />
-                </div>
+            <div className="flex items-center gap-2.5 cursor-pointer group" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+              <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center text-white shadow-[0_0_15px_rgba(59,130,246,0.3)] group-hover:bg-blue-500 transition-colors">
+                <Zap className="w-4 h-4 fill-white" />
               </div>
-              <span className="text-lg font-semibold text-white tracking-tight group-hover:text-slate-200 transition-colors">TaskScheduler<span className="text-indigo-400">.ai</span></span>
+              <span className="text-base font-bold text-white tracking-tight">
+                TaskScheduler<span className="text-blue-500">.ai</span>
+              </span>
             </div>
 
             {/* Desktop Nav */}
             <div className="hidden md:flex items-center gap-8">
-              {['features', 'tech', 'about'].map((item) => (
+              {['features', 'about'].map((item) => (
                 <a 
                   key={item}
                   href={`#${item}`}
                   onClick={(e) => handleSmoothScroll(e, item)}
-                  className="text-sm font-medium text-slate-400 hover:text-white transition-colors capitalize"
+                  className="text-xs font-semibold text-[#8e8e93] hover:text-white transition-colors uppercase tracking-wider font-mono"
                 >
                   {item}
                 </a>
               ))}
+              <div className="h-4 w-[1px] bg-white/[0.08]" />
               <button
                 onClick={() => navigate('/login')}
-                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full font-medium text-sm transition-all shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 flex items-center gap-2"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded font-semibold text-xs transition shadow-[0_0_15px_rgba(59,130,246,0.25)] cursor-pointer flex items-center gap-1.5"
               >
-                Login <ArrowRight className="w-3 h-3" />
+                Login <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
 
             {/* Mobile Toggle */}
-            <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="md:hidden text-white">
-              {isMenuOpen ? <X /> : <Menu />}
+            <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="md:hidden text-[#8e8e93] hover:text-white transition">
+              {isMenuOpen ? <X size={22} /> : <Menu size={22} />}
             </button>
           </div>
         </div>
@@ -173,82 +139,107 @@ const LandingPage = () => {
 
       {/* Mobile Menu Overlay */}
       {isMenuOpen && (
-        <div className="fixed inset-0 z-40 bg-[#0a0e27] pt-24 px-6 md:hidden">
-          <div className="flex flex-col space-y-6 text-2xl font-light">
-             {['features', 'tech', 'about'].map((item) => (
-                <a key={item} href={`#${item}`} onClick={(e) => handleSmoothScroll(e, item)} className="text-white capitalize">
+        <div className="fixed inset-0 z-45 bg-[#18181b]/98 backdrop-blur-lg pt-24 px-6 md:hidden">
+          <div className="flex flex-col space-y-6 text-lg font-semibold font-mono">
+             {['features', 'about'].map((item) => (
+                <a key={item} href={`#${item}`} onClick={(e) => handleSmoothScroll(e, item)} className="text-[#d1d1d6] capitalize tracking-wide">
                    {item}
                 </a>
              ))}
-             <button onClick={() => navigate('/login')} className="text-indigo-400">Login / Sign Up</button>
+             <div className="h-[1px] bg-white/[0.08]" />
+             <button onClick={() => navigate('/login')} className="text-left text-blue-500">Login / Sign Up</button>
+             <button onClick={() => navigate('/company-setup')} className="text-left text-[#d1d1d6]">Start Simulation</button>
           </div>
         </div>
       )}
 
-      {/*HERO SECTION*/}
-      <section className="relative z-10 pt-40 pb-32 container mx-auto px-6 max-w-5xl text-center">
-        <div className="space-y-8">
-            {/* Minimal Badge */}
+      {/* HERO SECTION */}
+      <section className="relative z-10 pt-36 pb-20">
+        <div className="container mx-auto px-6 max-w-5xl text-center">
+          <div className="space-y-6">
+            
+            {/* Thesis Registry Tag */}
             <div className="flex justify-center">
-              <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-500/20 backdrop-blur-md rounded-full border border-indigo-400/30">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-400"></span>
-                </span>
-                <span className="text-xs font-medium text-indigo-200 uppercase tracking-wide">Thesis Project 2026</span>
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#222226]/80 border border-white/[0.06] rounded shadow-inner">
+                <span className="w-2 h-2 rounded bg-emerald-500 animate-pulse" />
+                <span className="text-[10px] font-mono font-semibold text-[#8e8e93] uppercase tracking-widest">Active Simulation Hub</span>
               </div>
             </div>
 
-            <h1 className="text-5xl sm:text-7xl md:text-8xl font-bold text-white tracking-tight leading-[1.1] max-w-4xl mx-auto">
-              Optimize Resources <br/>
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-400 to-indigo-400">
-                Intelligently.
+            {/* Title */}
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white tracking-tight leading-tight max-w-4xl mx-auto">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-300 to-purple-400 mt-2 block">
+                Optimize Resources <span>Intelligently.</span>
               </span>
             </h1>
 
-            <p className="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto leading-relaxed font-light">
-              Maximize your team's performance with Machine Learning algorithms and real-time Predictive Analytics.
+            {/* Description */}
+            <p className="text-xs md:text-sm text-[#8e8e93] max-w-2xl mx-auto leading-relaxed">
+              An intelligent optimization framework employing Machine Learning estimation models and genetic optimization algorithms for real-time task scheduling and system telemetry.
             </p>
 
-            <div className="flex flex-wrap items-center justify-center gap-4 pt-6">
+            {/* Action buttons */}
+            <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
               <button
                 onClick={() => navigate('/company-setup')}
-                className="px-8 py-4 bg-white text-black rounded-lg font-bold text-sm hover:bg-indigo-50 transition-transform hover:-translate-y-0.5 shadow-[0_0_20px_rgba(255,255,255,0.1)]"
+                className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded font-bold text-xs transition shadow-[0_0_15px_rgba(59,130,246,0.3)] hover:shadow-[0_0_20px_rgba(59,130,246,0.4)] cursor-pointer"
               >
                 Start Simulation
               </button>
               <button
                 onClick={(e) => handleSmoothScroll(e, 'features')}
-                className="px-8 py-4 bg-transparent border border-white/20 text-white rounded-lg font-bold text-sm hover:bg-white/5 transition-colors"
+                className="px-6 py-3 bg-[#222226]/60 border border-white/[0.06] text-[#d1d1d6] hover:border-white/[0.15] hover:text-white rounded font-bold text-xs transition cursor-pointer"
               >
                 Learn More
               </button>
             </div>
-            
-            {/* Trust/Stats Minimal */}
-            <div className="pt-16 border-t border-white/10 flex flex-wrap justify-center gap-12 md:gap-24 opacity-80">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-white tracking-tighter">98%</div>
-                <div className="text-xs text-slate-500 uppercase tracking-widest mt-1">Accuracy</div>
+
+            {/* Thesis Technical Registry Card */}
+            <div className="relative border border-white/[0.06] bg-[#1e1e22]/90 backdrop-blur-md p-6 rounded max-w-2xl mx-auto mt-12 text-left shadow-2xl">
+              {/* Glowing accent border */}
+              <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-blue-500/30 to-transparent" />
+              
+              {/* Technical Blueprint Corner Crosshairs */}
+              <div className="absolute -top-1.5 -left-1.5 text-white/20 font-mono text-[10px] select-none">+</div>
+              <div className="absolute -top-1.5 -right-1.5 text-white/20 font-mono text-[10px] select-none">+</div>
+              <div className="absolute -bottom-1.5 -left-1.5 text-white/20 font-mono text-[10px] select-none">+</div>
+              <div className="absolute -bottom-1.5 -right-1.5 text-white/20 font-mono text-[10px] select-none">+</div>
+
+              <div className="border-b border-white/[0.05] pb-3 mb-4">
+                <span className="text-[10px] font-mono text-blue-400 font-bold uppercase tracking-widest">DIPLOMA THESIS TECHNICAL REGISTRY</span>
               </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-white tracking-tighter">50ms</div>
-                <div className="text-xs text-slate-500 uppercase tracking-widest mt-1">Latency</div>
-              </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-white tracking-tighter">24/7</div>
-                <div className="text-xs text-slate-500 uppercase tracking-widest mt-1">Uptime</div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
+                <div>
+                  <div className="text-[9px] text-[#636366] uppercase tracking-wider">Research Candidates</div>
+                  <div className="text-[#e5e5ea] mt-0.5 font-sans font-semibold">Panagiotis Papatheodoropoulos & Iliana Christana</div>
+                </div>
+                <div>
+                  <div className="text-[9px] text-[#636366] uppercase tracking-wider">Institution</div>
+                  <div className="text-[#e5e5ea] mt-0.5 font-sans font-semibold">Department of Informatics & Telecommunications</div>
+                </div>
+                <div>
+                  <div className="text-[9px] text-[#636366] uppercase tracking-wider">Academic Supervisor Board</div>
+                  <div className="text-[#e5e5ea] mt-0.5 font-sans font-semibold">Thesis Evaluation Committee</div>
+                </div>
+                <div>
+                  <div className="text-[9px] text-[#636366] uppercase tracking-wider">Academic Year / Calendar</div>
+                  <div className="text-[#e5e5ea] mt-0.5 font-sans font-semibold">Session 2025 - 2026</div>
+                </div>
               </div>
             </div>
+          </div>
         </div>
       </section>
 
-      {/* FEATURES */}
-      <section id="features" className="py-24 bg-[#141b3a]/50 border-y border-white/10">
+      {/* PLATFORM CAPABILITIES */}
+      <section id="features" className="py-24 bg-[#18181b]/50 border-y border-white/[0.06] relative">
         <div className="container mx-auto px-6 max-w-6xl">
-          <div className="mb-16">
-            <h2 className="text-3xl font-bold text-white mb-4">Platform Capabilities</h2>
-            <div className="h-1 w-20 bg-indigo-500"></div>
+          <div className="flex flex-col md:flex-row md:items-end justify-between mb-16 border-b border-white/[0.06] pb-6">
+            <div>
+              <span className="text-[9px] font-mono text-blue-400 font-bold uppercase tracking-widest">SYSTEM MODULES</span>
+              <h2 className="text-2xl md:text-3xl font-bold text-white tracking-tight mt-1">Platform Capabilities</h2>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -257,23 +248,26 @@ const LandingPage = () => {
               return (
                 <div
                   key={i}
-                  className="group p-6 bg-[#1a2341]/80 backdrop-blur-sm rounded-xl border border-white/10 hover:border-indigo-400/40 transition-all duration-300 hover:shadow-2xl hover:shadow-indigo-500/10 hover:-translate-y-1"
+                  className={`group relative p-6 bg-gradient-to-b from-[#222226] to-[#18181c] border border-white/[0.06] rounded hover:bg-gradient-to-b hover:from-[#26262b] hover:to-[#1c1c20] transition-all duration-300 ${feature.hoverStyle}`}
                 >
-                  <div className="flex items-start justify-between mb-8">
-                    <div className={`p-3 bg-gradient-to-br ${feature.color} rounded-lg text-white group-hover:scale-110 transition-transform duration-300 shadow-lg`}>
-                      <Icon size={24} />
+                  {/* Drafting corner decorations */}
+                  <div className="absolute -top-1 -left-1 text-white/10 font-mono text-[9px] select-none opacity-0 group-hover:opacity-100 transition-opacity">+</div>
+                  <div className="absolute -top-1 -right-1 text-white/10 font-mono text-[9px] select-none opacity-0 group-hover:opacity-100 transition-opacity">+</div>
+                  <div className="absolute -bottom-1 -left-1 text-white/10 font-mono text-[9px] select-none opacity-0 group-hover:opacity-100 transition-opacity">+</div>
+                  <div className="absolute -bottom-1 -right-1 text-white/10 font-mono text-[9px] select-none opacity-0 group-hover:opacity-100 transition-opacity">+</div>
+
+                  <div className="flex items-start justify-between mb-6">
+                    <div className={`p-2.5 rounded border ${feature.iconColor}`}>
+                      <Icon size={20} />
                     </div>
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 border border-white/10 px-2 py-1 rounded">
+                    <span className="text-[8px] font-mono font-bold uppercase tracking-wider text-[#d1d1d6] border border-white/[0.06] px-2 py-0.5 rounded bg-[#141416]">
                       {feature.tag}
                     </span>
                   </div>
-                  <h3 className="text-xl font-bold text-white mb-2 group-hover:text-indigo-400 transition-colors">{feature.title}</h3>
-                  <p className="text-slate-400 text-sm leading-relaxed">
+                  <h3 className="text-sm font-bold text-white mb-2">{feature.title}</h3>
+                  <p className="text-[#8e8e93] text-xs leading-relaxed font-normal">
                     {feature.description}
                   </p>
-                  
-                  {/* Hover Glow Effect */}
-                  <div className="absolute inset-0 bg-indigo-500/5 opacity-0 group-hover:opacity-100 rounded-xl transition-opacity pointer-events-none"></div>
                 </div>
               );
             })}
@@ -281,70 +275,46 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/*TECH STACK List*/}
-      <section id="tech" className="py-24 container mx-auto px-6 max-w-6xl bg-[#0a0e27]">
-        <div className="flex flex-col md:flex-row gap-16">
-          <div className="md:w-1/3">
-             <h2 className="text-3xl font-bold text-white mb-6">Built for scale.</h2>
-             <p className="text-slate-400 leading-relaxed">
-                Designed with speed and security in mind. We use cutting-edge technologies to ensure the integrity and availability of your data.
-             </p>
-          </div>
-          
-          <div className="md:w-2/3 grid grid-cols-2 md:grid-cols-3 gap-y-12 gap-x-8">
-             {techStack.map((tech, i) => {
-                const Icon = tech.icon;
-                return (
-                   <div key={i} className="flex flex-col gap-3 group">
-                      <div className="flex items-center gap-3">
-                         <Icon className="text-indigo-400 group-hover:text-indigo-300 transition-colors" size={20} />
-                         <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">{tech.category}</span>
-                      </div>
-                      <div className="text-lg font-medium text-white border-l border-white/10 pl-4 group-hover:border-indigo-500 transition-colors">
-                         {tech.name}
-                      </div>
-                   </div>
-                )
-             })}
-          </div>
-        </div>
-      </section>
-
       {/* ABOUT / CTA */}
-      <section id="about" className="py-24 bg-[#141b3a]/50 border-t border-white/10">
-         <div className="container mx-auto px-6 max-w-4xl text-center">
-            <h2 className="text-4xl font-bold text-white mb-6">Ready to optimize?</h2>
-            <p className="text-slate-400 text-lg mb-10 max-w-2xl mx-auto">
-               The AI Task Scheduler platform is available for testing. Start today and see the difference in your team's performance.
+      <section id="about" className="py-24 bg-[#141416] border-t border-white/[0.04]">
+         <div className="container mx-auto px-6 max-w-4xl text-center space-y-6">
+            <span className="text-[9px] font-mono text-blue-400 font-bold uppercase tracking-widest">SIMULATION GATEWAY</span>
+            <h2 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">Ready to optimize?</h2>
+            <p className="text-[#8e8e93] text-xs md:text-sm max-w-xl mx-auto leading-relaxed">
+               The optimization model and decision engine is operational. Deploy a simulation environment with custom team configurations and telemetry tracking options.
             </p>
-            <button
-              onClick={() => navigate('/company-setup')}
-              className="px-10 py-5 bg-white text-black rounded-lg font-bold hover:bg-indigo-50 transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)]"
-            >
-               Create Workspace
-            </button>
+            <div className="pt-4 flex justify-center">
+              <button
+                onClick={() => navigate('/company-setup')}
+                className="px-8 py-3.5 bg-blue-600 hover:bg-blue-500 text-white rounded font-bold text-xs transition shadow-[0_0_15px_rgba(59,130,246,0.3)] hover:shadow-[0_0_25px_rgba(59,130,246,0.4)] cursor-pointer"
+              >
+                 Create Workspace
+              </button>
+            </div>
          </div>
       </section>
 
-      {/*FOOTER*/}
-      <footer className="py-12 border-t border-white/10 bg-[#0a0e27]">
-        <div className="container mx-auto px-6 max-w-6xl flex flex-col md:flex-row justify-between items-center gap-6">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-sm flex items-center justify-center">
-               <Zap size={14} className="text-white" fill="currentColor" />
+      {/* FOOTER */}
+      <footer className="py-12 border-t border-white/[0.06] bg-[#141416] relative z-10">
+        <div className="container mx-auto px-6 max-w-6xl flex flex-col md:flex-row justify-between items-center gap-6 text-[11px] font-mono">
+          
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+            <div className="w-6 h-6 bg-blue-600 rounded flex items-center justify-center text-white shadow-sm">
+               <Zap size={12} className="fill-white" />
             </div>
-            <span className="font-bold text-white">TaskScheduler.ai</span>
+            <span className="font-bold text-white tracking-wider">TaskScheduler<span className="text-blue-500">.ai</span></span>
           </div>
           
-          <div className="flex gap-8 text-sm text-slate-500">
+          <div className="flex gap-6 text-[#8e8e93]">
              <button onClick={() => navigate('/legal?doc=privacy')} className="hover:text-white transition-colors">Privacy</button>
              <button onClick={() => navigate('/legal?doc=terms')} className="hover:text-white transition-colors">Terms</button>
-             <a href="#" className="hover:text-white transition-colors">Contact</a>
+             <button onClick={() => navigate('/login')} className="hover:text-white transition-colors">Contact</button>
           </div>
 
-          <div className="text-xs text-slate-600">
-            © 2026 Thesis Project
+          <div className="text-[#636366]">
+            © 2026 Thesis Project • Panagiotis Papatheodoropoulos & Iliana Christana
           </div>
+
         </div>
       </footer>
     </div>

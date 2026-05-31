@@ -12,21 +12,20 @@
  * Status transitions (Start, Complete, Block, Resume) are available via header buttons.
  */
 // src/components/TaskDetailsModal.jsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   X, Clock, User, Calendar, AlertCircle, MessageSquare, 
   History, Send, Trash2, CheckCircle, XCircle, PlayCircle,
-  PauseCircle, Flag, Users, Plus
+  PauseCircle, Flag, Users, Plus, GitCommit, GitBranch, Diff, Hash, Github, RefreshCw
 } from 'lucide-react';
-import { tasksAPI, taskCommentsAPI, taskTimeAPI, employeesAPI,taskAuditAPI } from '../utils/api';
+import { tasksAPI, taskCommentsAPI, taskTimeAPI, employeesAPI,taskAuditAPI, departmentsAPI } from '../utils/api';
+import { parseUTCDate, formatDate, getRelativeTime } from '../utils/dateUtils';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../components/Toast';
-// FIX: Removed EVENT_TYPES from import to break circular dependency
 import { useWebSocket } from '../contexts/WebSocketProvider';
-import type { TaskDetailsModalProps, Task, TaskAssignment, Employee } from '../types';
+import type { TaskDetailsModalProps, Task, TaskAssignment, Employee, TaskComment, TaskAuditLog, TaskTimeEntry } from '../types';
 
-// FIX: Define event types locally to avoid the ReferenceError
 const TASK_EVENTS = {
     TASK_STATUS_CHANGED: 'TASK_STATUS_CHANGED',
     TASK_UPDATED: 'TASK_UPDATED',
@@ -46,16 +45,18 @@ const TASK_EVENTS = {
  *                                         so the parent list can refresh.
  * @returns {JSX.Element|null} The rendered modal, or null when {@code isOpen} is false.
  */
-const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClose, onTaskUpdate }) => {
+const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClose, onTaskUpdate, onCloneTask }) => {
     const { user } = useAuth();
     const [activeTab, setActiveTab] = useState('details');
     const { connected, subscribe } = useWebSocket();
-    const [taskData, setTaskData] = useState(task);
-    const [comments, setComments] = useState<any[]>([]);
-    const [auditLogs, setAuditLogs] = useState<any[]>([]);
+    const [taskData, setTaskData] = useState<Task | null>(task);
+    const [comments, setComments] = useState<TaskComment[]>([]);
+    const [auditLogs, setAuditLogs] = useState<TaskAuditLog[]>([]);
+    const [systemLogs, setSystemLogs] = useState<TaskAuditLog[]>([]);
     const { darkMode } = useTheme();
     const { showToast } = useToast();
-    const [timeEntries, setTimeEntries] = useState<any[]>([]);
+    const [timeEntries, setTimeEntries] = useState<TaskTimeEntry[]>([]);
+    const [employeeProfile, setEmployeeProfile] = useState<Employee | null>(null);
     const [newComment, setNewComment] = useState<string>('');
     const [commentError, setCommentError] = useState<string | null>(null);
     const [newTimeEntry, setNewTimeEntry] = useState({
@@ -66,7 +67,79 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClo
     const [loading, setLoading] = useState<boolean>(false);
     const [loadError, setLoadError] = useState<string | null>(null);
     const [totalHours, setTotalHours] = useState<number>(0);
-    const commentsEndRef = useRef<any>(null);
+    const commentsEndRef = useRef<HTMLDivElement>(null);
+
+    // Git branching states
+    const [branches, setBranches] = useState<string[]>(() => {
+        if (task?.branches) {
+            try { return JSON.parse(task.branches); } catch { return task.branches.split(',').map(b => b.trim()); }
+        }
+        return ['main'];
+    });
+    const [activeBranch, setActiveBranch] = useState<string>(task?.activeBranch || 'main');
+    const [isCreatingBranch, setIsCreatingBranch] = useState<boolean>(false);
+    const [newBranchName, setNewBranchName] = useState<string>('');
+    const [showBranchDropdown, setShowBranchDropdown] = useState<boolean>(false);
+
+    // GitHub integration states
+    const [githubRepo, setGithubRepo] = useState<string>(task?.githubRepo || '');
+    const [isLinkedToGithub, setIsLinkedToGithub] = useState<boolean>(false);
+    const [githubError, setGithubError] = useState<string | null>(null);
+    const [isLinking, setIsLinking] = useState<boolean>(false);
+    const [tempRepoPath, setTempRepoPath] = useState<string>('');
+    const [githubToken, setGithubToken] = useState<string>(() => {
+        return localStorage.getItem('github_global_token') || '';
+    });
+    const [tempToken, setTempToken] = useState<string>('');
+
+    // Simulated/custom commits states
+    const [showCommitForm, setShowCommitForm] = useState<boolean>(false);
+    const [newCommitMessage, setNewCommitMessage] = useState<string>('');
+    const [newCommitDesc, setNewCommitDesc] = useState<string>('');
+
+    const [deptDevInfoEnabled, setDeptDevInfoEnabled] = useState<boolean>(false);
+
+    // Fetch employee profile on mount/open
+    useEffect(() => {
+        if (isOpen && user?.id) {
+            employeesAPI.getByUserId(user.id)
+                .then(async (profile) => {
+                    setEmployeeProfile(profile);
+                    if (profile.department) {
+                        try {
+                            const dept = await departmentsAPI.getByName(profile.department);
+                            setDeptDevInfoEnabled(dept.devInfoEnabled || false);
+                        } catch (err) {
+                            console.error("Error fetching department for dev info check:", err);
+                        }
+                    }
+                })
+                .catch(err => console.error("Error fetching employee profile:", err));
+        }
+    }, [isOpen, user?.id]);
+
+    // Sync GitHub repo state when task changes
+    useEffect(() => {
+        if (isOpen && task?.id) {
+            setGithubRepo(task.githubRepo || '');
+            const storedToken = localStorage.getItem('github_global_token');
+            setGithubToken(storedToken || '');
+            setIsLinking(false);
+            setGithubError(null);
+            setIsLinkedToGithub(false);
+            setShowCommitForm(false);
+            setNewCommitMessage('');
+            setNewCommitDesc('');
+
+            // Also sync active branch and branches from task
+            setActiveBranch(task.activeBranch || 'main');
+            if (task.branches) {
+                try { setBranches(JSON.parse(task.branches)); } catch { setBranches(task.branches.split(',').map(b => b.trim())); }
+            } else {
+                setBranches(['main']);
+            }
+        }
+    }, [isOpen, task?.id, task]);
 
     // Sync task prop to state when it changes
     useEffect(() => {
@@ -86,16 +159,17 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClo
     useEffect(() => {
         if (!isOpen || !task?.id || !connected) return;
 
-        const handleTaskUpdate = (data) => {
+        const handleTaskUpdate = (data: Record<string, unknown>) => {
             // Check if the update is for the current task
             // Handle potentially different payload structures
-            const updatedTaskId = data.task?.id || data.taskId || data.id;
+            const nested = data.task as Record<string, unknown> | undefined;
+            const updatedTaskId = nested?.id || data.taskId || data.id;
             
             if (updatedTaskId === task.id) {
                 fetchTaskDetails(); 
                 
                 // If it was a status change, notify parent to update list
-                if (onTaskUpdate) onTaskUpdate?.(undefined as any);
+                if (onTaskUpdate) onTaskUpdate?.(undefined as unknown as Task);
             }
         };
 
@@ -119,31 +193,315 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClo
     const fetchTaskDetails = async () => {
         try {
             // Only set loading on first load or manual refresh, not RT updates to prevent flicker
-            if (!taskData.description) setLoading(true); 
+            if (!taskData || !taskData.description) setLoading(true); 
             setLoadError(null);
 
             // Parallel fetch for better performance
             const [fetchedTask, fetchedComments, fetchedLogs, fetchedTime] = await Promise.all([
                 tasksAPI.getById(task.id),
                 taskCommentsAPI.getByTask(task.id).catch(() => []),
-                taskAuditAPI.getHistory ? taskAuditAPI.getHistory(task.id).catch(() => []) : [], 
+                taskAuditAPI.getHistory ? Promise.resolve(taskAuditAPI.getHistory(task.id)).catch(() => []) : Promise.resolve([]), 
                 taskTimeAPI.getByTask(task.id).catch(() => [])
             ]);
 
             setTaskData(fetchedTask);
             setComments(fetchedComments);
-            setAuditLogs(fetchedLogs);
             setTimeEntries(fetchedTime);
 
+            // Set system logs for the dedicated History tab
+            const sortedSystemLogs = [...fetchedLogs];
+            sortedSystemLogs.sort((a, b) => parseUTCDate(b.createdAt || '').getTime() - parseUTCDate(a.createdAt || '').getTime());
+            setSystemLogs(sortedSystemLogs);
+
+            let githubCommits: TaskAuditLog[] = [];
+            let githubBranches: string[] = ['main'];
+            let fetchedFromGithub = false;
+
+            const dbRepo = fetchedTask.githubRepo || '';
+            const dbActiveBranch = fetchedTask.activeBranch || 'main';
+            let dbBranches = ['main'];
+            if (fetchedTask.branches) {
+                try {
+                    dbBranches = JSON.parse(fetchedTask.branches);
+                } catch {
+                    dbBranches = fetchedTask.branches.split(',').map((b: string) => b.trim());
+                }
+            }
+
+            setGithubRepo(dbRepo);
+            setActiveBranch(dbActiveBranch);
+            setBranches(dbBranches);
+
+            if (dbRepo) {
+                try {
+                    const headers: Record<string, string> = { 'Accept': 'application/vnd.github.v3+json' };
+                    const storedToken = localStorage.getItem('github_global_token') || '';
+                    if (storedToken) {
+                        headers['Authorization'] = `token ${storedToken}`;
+                    }
+
+                    // Try to fetch branches from GitHub API
+                    const branchesRes = await fetch(`https://api.github.com/repos/${dbRepo}/branches`, {
+                        headers
+                    });
+                    
+                    if (branchesRes && branchesRes.ok) {
+                        const branchesData = await branchesRes.json();
+                        githubBranches = branchesData.map((b: { name: string }) => b.name);
+                        
+                        // Merge uniquely
+                        const mergedBranches = Array.from(new Set([...githubBranches, ...dbBranches, 'main']));
+                        
+                        // Check if activeBranch is still valid, else default to main or first branch
+                        let finalActive = dbActiveBranch;
+                        if (!mergedBranches.includes(dbActiveBranch)) {
+                            finalActive = mergedBranches.includes('main') ? 'main' : (mergedBranches[0] || 'main');
+                        }
+
+                        setBranches(mergedBranches);
+                        setActiveBranch(finalActive);
+
+                        if (JSON.stringify(mergedBranches) !== fetchedTask.branches || finalActive !== fetchedTask.activeBranch) {
+                            tasksAPI.update(task.id, {
+                                branches: JSON.stringify(mergedBranches),
+                                activeBranch: finalActive
+                            })
+                            .then(updated => {
+                                if (onTaskUpdate) onTaskUpdate(updated);
+                            })
+                            .catch(err => console.error("Error auto-updating branches in backend:", err));
+                        }
+
+                        // Try to fetch commits for activeBranch from GitHub API
+                        const commitsRes = await fetch(`https://api.github.com/repos/${dbRepo}/commits?sha=${finalActive}&per_page=15`, {
+                            headers
+                        });
+
+                        if (commitsRes && commitsRes.ok) {
+                            const commitsData = await commitsRes.json();
+                            githubCommits = commitsData.map((item: any) => ({
+                                id: item.sha,
+                                taskId: task.id,
+                                action: item.commit.message.split('\n')[0],
+                                description: item.commit.message,
+                                userName: item.commit.author?.name || item.author?.login || 'GitHub Contributor',
+                                createdAt: item.commit.author?.date || new Date().toISOString(),
+                                fieldName: undefined,
+                                oldValue: undefined,
+                                newValue: undefined
+                            }));
+                            fetchedFromGithub = true;
+                            setIsLinkedToGithub(true);
+                            setGithubError(null);
+                        } else {
+                            if (commitsRes && commitsRes.status === 403) {
+                                setGithubError("GitHub API rate limit exceeded. Using simulated commits.");
+                            } else if (commitsRes) {
+                                setGithubError(`Failed to fetch commits (${commitsRes.status}). Using simulated commits.`);
+                            } else {
+                                setGithubError("Failed to fetch commits. Using simulated commits.");
+                            }
+                        }
+                    } else {
+                        if (branchesRes && branchesRes.status === 404) {
+                            setGithubError("Repository not found or private. Using simulated commits.");
+                        } else if (branchesRes && branchesRes.status === 403) {
+                            setGithubError("GitHub API rate limit exceeded. Using simulated commits.");
+                        } else if (branchesRes) {
+                            setGithubError(`Failed to connect to GitHub (${branchesRes.status}). Using simulated commits.`);
+                        } else {
+                            setGithubError(`Failed to connect to GitHub. Using simulated commits.`);
+                        }
+                        setIsLinkedToGithub(false);
+                    }
+                } catch (e) {
+                    console.error("Error communicating with GitHub:", e);
+                    setGithubError("GitHub connection error. Using simulated commits.");
+                    setIsLinkedToGithub(false);
+                }
+            }
+
+            if (fetchedFromGithub) {
+                setAuditLogs(githubCommits);
+            } else {
+                setIsLinkedToGithub(false);
+                
+                let customCommits: TaskAuditLog[] = [];
+                if (fetchedTask.customCommits) {
+                    try {
+                        customCommits = JSON.parse(fetchedTask.customCommits);
+                    } catch {
+                        customCommits = [];
+                    }
+                }
+
+                // Filter commits by branch
+                const filteredCommits = customCommits.filter((c: any) => {
+                    return !c.branch || c.branch === dbActiveBranch;
+                });
+
+                // Sort chronologically descending
+                filteredCommits.sort((a, b) => parseUTCDate(b.createdAt || '').getTime() - parseUTCDate(a.createdAt || '').getTime());
+
+                setAuditLogs(filteredCommits);
+            }
+
             // Calculate total hours
-            const total = fetchedTime.reduce((acc, entry) => acc + (parseFloat(entry.hoursSpent) || 0), 0);
+            const total = fetchedTime.reduce((acc: number, entry: TaskTimeEntry) => acc + (Number(entry.hoursSpent) || 0), 0);
             setTotalHours(total);
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error("Error fetching task details:", error);
             setLoadError('Unable to load task details. Please try again.');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleCreateBranch = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const trimmed = newBranchName.trim().toLowerCase().replace(/[^a-z0-9/_-]/g, '-');
+        if (!trimmed) {
+            showToast('Branch name cannot be empty', 'error');
+            return;
+        }
+        if (branches.includes(trimmed)) {
+            showToast('Branch already exists', 'error');
+            return;
+        }
+
+        const updatedBranches = [...branches, trimmed];
+        setBranches(updatedBranches);
+        setActiveBranch(trimmed);
+        setNewBranchName('');
+        setIsCreatingBranch(false);
+        setShowBranchDropdown(false);
+        showToast(`Created and checked out branch '${trimmed}'`, 'success');
+
+        try {
+            const updated = await tasksAPI.update(task.id, {
+                branches: JSON.stringify(updatedBranches),
+                activeBranch: trimmed
+            });
+            if (onTaskUpdate) onTaskUpdate(updated);
+            fetchTaskDetails();
+        } catch (err) {
+            console.error("Error creating branch:", err);
+            showToast('Failed to save branch to database', 'error');
+        }
+    };
+
+    const handleMergeBranch = async () => {
+        if (activeBranch === 'main') return;
+        
+        try {
+            let customCommits: any[] = [];
+            if (taskData?.customCommits) {
+                try {
+                    customCommits = JSON.parse(taskData.customCommits);
+                } catch {
+                    customCommits = [];
+                }
+            }
+
+            let mergedCount = 0;
+            customCommits.forEach(c => {
+                if (c.branch === activeBranch) {
+                    c.branch = 'main';
+                    mergedCount++;
+                }
+            });
+
+            const updated = await tasksAPI.update(task.id, {
+                customCommits: JSON.stringify(customCommits),
+                activeBranch: 'main'
+            });
+            
+            showToast(`Merged branch '${activeBranch}' into 'main' (${mergedCount} commits)`, 'success');
+            setActiveBranch('main');
+            if (onTaskUpdate) onTaskUpdate(updated);
+            fetchTaskDetails();
+        } catch (err) {
+            console.error("Error merging branches:", err);
+            showToast('Failed to merge branch.', 'error');
+        }
+    };
+
+    const handleDeleteBranch = async (branchToDelete: string) => {
+        if (branchToDelete === 'main') return;
+        
+        const updated = branches.filter(b => b !== branchToDelete);
+        setBranches(updated);
+        
+        const nextActive = activeBranch === branchToDelete ? 'main' : activeBranch;
+        setActiveBranch(nextActive);
+
+        let customCommits: any[] = [];
+        if (taskData?.customCommits) {
+            try {
+                customCommits = JSON.parse(taskData.customCommits);
+            } catch {
+                customCommits = [];
+            }
+        }
+        const updatedCommits = customCommits.filter(c => c.branch !== branchToDelete);
+
+        try {
+            const updatedTask = await tasksAPI.update(task.id, {
+                branches: JSON.stringify(updated),
+                activeBranch: nextActive,
+                customCommits: JSON.stringify(updatedCommits)
+            });
+            showToast(`Deleted branch '${branchToDelete}'`, 'success');
+            if (onTaskUpdate) onTaskUpdate(updatedTask);
+            fetchTaskDetails();
+        } catch (err) {
+            console.error("Error deleting branch:", err);
+            showToast('Failed to delete branch.', 'error');
+        }
+    };
+
+    const handleCreateSimulatedCommit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newCommitMessage.trim()) {
+            showToast('Commit message cannot be empty', 'error');
+            return;
+        }
+
+        const customLog = {
+            id: 'cmit-' + Math.random().toString(36).substring(2, 9),
+            taskId: task.id,
+            action: newCommitMessage.trim(),
+            description: newCommitDesc.trim() || undefined,
+            userName: user?.username || 'Developer',
+            createdAt: new Date().toISOString(),
+            branch: activeBranch,
+        };
+
+        try {
+            let customCommits: any[] = [];
+            if (taskData?.customCommits) {
+                try {
+                    customCommits = JSON.parse(taskData.customCommits);
+                } catch {
+                    customCommits = [];
+                }
+            }
+            customCommits.push(customLog);
+
+            const updated = await tasksAPI.update(task.id, {
+                customCommits: JSON.stringify(customCommits)
+            });
+
+            showToast(`Logged local commit: ${customLog.action}`, 'success');
+            setNewCommitMessage('');
+            setNewCommitDesc('');
+            setShowCommitForm(false);
+            if (onTaskUpdate) onTaskUpdate(updated);
+            fetchTaskDetails();
+        } catch (err) {
+            console.error("Error creating local commit:", err);
+            showToast('Failed to create local commit', 'error');
         }
     };
 
@@ -153,7 +511,7 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClo
      *
      * @param {React.FormEvent} e - The form submit event.
      */
-    const handleAddComment = async (e) => {
+    const handleAddComment = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!newComment.trim()) {
             setCommentError('Please enter a comment before posting.');
@@ -169,8 +527,9 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClo
             
             setNewComment('');
             await fetchTaskDetails();
-        } catch (error: any) {
-            showToast('Error adding comment: ' + error.message, 'error');
+        } catch (error: unknown) {
+            const errMsg = error instanceof Error ? error.message : 'Unknown error';
+            showToast('Error adding comment: ' + errMsg, 'error');
         }
     };
 
@@ -179,14 +538,15 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClo
      *
      * @param {string} commentId - The UUID of the comment to delete.
      */
-    const handleDeleteComment = async (commentId) => {
+    const handleDeleteComment = async (commentId: string) => {
         if (!window.confirm('Delete this comment?')) return;
 
         try {
             await taskCommentsAPI.delete(commentId);
             await fetchTaskDetails();
-        } catch (error: any) {
-            showToast('Error deleting comment: ' + error.message, 'error');
+        } catch (error: unknown) {
+            const errMsg = error instanceof Error ? error.message : 'Unknown error';
+            showToast('Error deleting comment: ' + errMsg, 'error');
         }
     };
 
@@ -197,7 +557,7 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClo
      *
      * @param {React.FormEvent} e - The form submit event.
      */
-    const handleAddTimeEntry = async (e) => {
+    const handleAddTimeEntry = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!newTimeEntry.hoursSpent || parseFloat(newTimeEntry.hoursSpent) <= 0) {
             showToast('Please enter valid hours', 'warning');
@@ -208,7 +568,7 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClo
             // Check employee profile existence
             try {
                 await employeesAPI.getByUserId(user.id);
-            } catch (error: any) {
+            } catch (error: unknown) {
                 showToast('You need an employee profile to log time. Contact an administrator.', 'warning');
                 return;
             }
@@ -227,8 +587,9 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClo
             });
             
             await fetchTaskDetails();
-        } catch (error: any) {
-            showToast('Error logging time: ' + error.message, 'error');
+        } catch (error: unknown) {
+            const errMsg = error instanceof Error ? error.message : 'Unknown error';
+            showToast('Error logging time: ' + errMsg, 'error');
         }
     };
 
@@ -237,15 +598,16 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClo
      *
      * @param {string} newStatus - The target status string (e.g. "IN_PROGRESS", "COMPLETED").
      */
-    const handleStatusChange = async (newStatus) => {
+    const handleStatusChange = async (newStatus: string) => {
         try {
             await tasksAPI.updateStatus(task.id, newStatus);
             await fetchTaskDetails();
 
-            if (onTaskUpdate) onTaskUpdate?.(undefined as any);
-        
-        } catch (error: any) {
-            showToast('Error updating status: ' + error.message, 'error');
+            if (onTaskUpdate) onTaskUpdate?.(undefined as unknown as Task);
+    
+        } catch (error: unknown) {
+            const errMsg = error instanceof Error ? error.message : 'Unknown error';
+            showToast('Error updating status: ' + errMsg, 'error');
         }
     };
 
@@ -255,8 +617,8 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClo
      * @param {string} priority - Task priority ("LOW", "MEDIUM", "HIGH", "CRITICAL").
      * @returns {string} Tailwind CSS classes for the priority badge.
      */
-    const getPriorityColor = (priority) => {
-        const colors = {
+    const getPriorityColor = (priority: string) => {
+        const colors: Record<string, string> = {
             LOW: 'bg-green-100 text-green-800 border-green-300',
             MEDIUM: 'bg-yellow-100 text-yellow-800 border-yellow-300',
             HIGH: 'bg-orange-100 text-orange-800 border-orange-300',
@@ -271,8 +633,8 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClo
      * @param {string} status - Task status ("PENDING", "IN_PROGRESS", "COMPLETED", "BLOCKED", "CANCELLED").
      * @returns {string} Tailwind CSS classes for the status badge.
      */
-    const getStatusColor = (status) => {
-        const colors = {
+    const getStatusColor = (status: string) => {
+        const colors: Record<string, string> = {
             PENDING: 'bg-gray-100 text-gray-800',
             IN_PROGRESS: 'bg-blue-100 text-blue-800',
             COMPLETED: 'bg-green-100 text-green-800',
@@ -288,10 +650,57 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClo
      * @param {string|null} dateString - An ISO 8601 date string, or null/undefined.
      * @returns {string} A formatted date-time string, or 'N/A' if the input is falsy.
      */
-    const formatDate = (dateString) => {
-        if (!dateString) return 'N/A';
-        return new Date(dateString).toLocaleString();
+    /**
+     * Generates a short git-style commit hash from an ID string.
+     */
+    const getShortHash = (id: string): string => {
+        return id.replace(/-/g, '').substring(0, 7);
     };
+
+    /**
+     * Maps an audit action to a git-style icon color.
+     */
+    const getCommitColor = (action: string): string => {
+        const lower = action.toLowerCase();
+        if (lower.includes('created') || lower.includes('added')) return 'bg-green-500';
+        if (lower.includes('deleted') || lower.includes('removed') || lower.includes('cancelled')) return 'bg-red-500';
+        if (lower.includes('completed')) return 'bg-emerald-500';
+        if (lower.includes('blocked')) return 'bg-orange-500';
+        if (lower.includes('assigned') || lower.includes('assignment')) return 'bg-purple-500';
+        return 'bg-indigo-500';
+    };
+
+    const isDev = useMemo(() => {
+        if (!user) return false;
+        if (user.role === 'ADMIN' || user.role === 'MANAGER') return true;
+        if (!employeeProfile) return false;
+        
+        const dept = (employeeProfile.department || '').toLowerCase();
+        const pos = (employeeProfile.position || '').toLowerCase();
+        
+        return deptDevInfoEnabled ||
+               dept.includes('engineering') || 
+               dept.includes('development') || 
+               dept.includes('it') || 
+               dept.includes('software') || 
+               dept.includes('tech') ||
+               dept.includes('devops') ||
+               dept.includes('r&d') ||
+               pos.includes('dev') || 
+               pos.includes('engineer') || 
+               pos.includes('programmer') || 
+               pos.includes('architect') || 
+               pos.includes('coder');
+    }, [user, employeeProfile, deptDevInfoEnabled]);
+
+    const availableTabs = useMemo(() => {
+        const tabs = ["details", "discussion", "time"];
+        if (isDev) {
+            tabs.push("commits");
+        }
+        tabs.push("history");
+        return tabs;
+    }, [isDev]);
 
     const canManageTask = user?.role === 'ADMIN' || user?.role === 'MANAGER' ||
     taskData?.createdBy === user?.id;
@@ -318,14 +727,14 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClo
                         <div className="flex items-center gap-3 flex-wrap">
                             <span
                                 className={`px-3 py-1 text-xs font-semibold rounded-full ${getStatusColor(
-                                    taskData?.status
+                                    taskData?.status || ''
                                 )}`}
                             >
                                 {taskData?.status}
                             </span>
                             <span
                                 className={`px-3 py-1 text-xs font-semibold rounded-full border-2 ${getPriorityColor(
-                                    taskData?.priority
+                                    taskData?.priority || ''
                                 )}`}
                             >
                                 <Flag className="w-3 h-3 inline mr-1" />
@@ -396,7 +805,7 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClo
                 <div className={`flex border-b px-6 ${
                     darkMode ? 'border-gray-700' : 'border-gray-200'
                 }`}>
-                    {["details", "comments", "time", "history"].map((tab) => (
+                    {availableTabs.map((tab) => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab)}
@@ -411,13 +820,28 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClo
                             }`}
                         >
                             {tab === "details" && <AlertCircle className="w-4 h-4 inline mr-1" />}
-                            {tab === "comments" && <MessageSquare className="w-4 h-4 inline mr-1" />}
+                            {tab === "discussion" && <MessageSquare className="w-4 h-4 inline mr-1" />}
                             {tab === "time" && <Clock className="w-4 h-4 inline mr-1" />}
+                            {tab === "commits" && <GitCommit className="w-4 h-4 inline mr-1" />}
                             {tab === "history" && <History className="w-4 h-4 inline mr-1" />}
-                            {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                            {tab === "comments" && comments.length > 0 && (
+                            {tab === "details" ? "Overview" : tab === "discussion" ? "Discussion" : tab === "commits" ? "Commits" : tab === "history" ? "History" : "Time Log"}
+                            {tab === "discussion" && comments.length > 0 && (
                                 <span className="ml-2 px-2 py-0.5 bg-indigo-100 text-indigo-700 text-xs rounded-full">
                                     {comments.length}
+                                </span>
+                            )}
+                            {tab === "commits" && auditLogs.length > 0 && (
+                                <span className={`ml-2 px-2 py-0.5 text-xs rounded-full font-mono ${
+                                    darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'
+                                }`}>
+                                    {auditLogs.length}
+                                </span>
+                            )}
+                            {tab === "history" && systemLogs.length > 0 && (
+                                <span className={`ml-2 px-2 py-0.5 text-xs rounded-full font-mono ${
+                                    darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'
+                                }`}>
+                                    {systemLogs.length}
                                 </span>
                             )}
                         </button>
@@ -473,6 +897,40 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClo
                                             </p>
                                         </div>
 
+                                        {taskData?.pendingByName && (
+                                            <div className={`p-4 rounded-lg ${
+                                                darkMode ? 'bg-gray-700' : 'bg-gray-50'
+                                            }`}>
+                                                <div className={`flex items-center gap-2 text-sm mb-1 ${
+                                                    darkMode ? 'text-gray-400' : 'text-gray-600'
+                                                }`}>
+                                                    <User className="w-4 h-4" />
+                                                    <span>Set to Pending By</span>
+                                                </div>
+                                                <p className={`font-medium ${
+                                                    darkMode ? 'text-gray-100' : 'text-gray-900'
+                                                }`}>
+                                                    {taskData.pendingByName}
+                                                </p>
+                                            </div>
+                                        )}
+
+                                        {taskData?.completedByName && (
+                                            <div className={`p-4 rounded-lg ${
+                                                darkMode ? 'bg-green-900/20' : 'bg-green-50'
+                                            }`}>
+                                                <div className="flex items-center gap-2 text-sm text-green-600 mb-1">
+                                                    <User className="w-4 h-4" />
+                                                    <span>Completed By</span>
+                                                </div>
+                                                <p className={`font-medium ${
+                                                    darkMode ? 'text-green-400' : 'text-green-900'
+                                                }`}>
+                                                    {taskData.completedByName}
+                                                </p>
+                                            </div>
+                                        )}
+
                                         <div className={`p-4 rounded-lg ${
                                             darkMode ? 'bg-gray-700' : 'bg-gray-50'
                                         }`}>
@@ -505,7 +963,7 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClo
                                             </div>
                                         )}
 
-                                        {Number(taskData?.estimatedHours || 0) && (
+                                        {Number(taskData?.estimatedHours || 0) > 0 && (
                                             <div className={`p-4 rounded-lg ${
                                                 darkMode ? 'bg-blue-900/20' : 'bg-blue-50'
                                             }`}>
@@ -543,9 +1001,9 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClo
                                                 darkMode ? 'text-gray-100' : 'text-gray-900'
                                             }`}>Assignments</h3>
                                             <div className="space-y-2">
-                                                {taskData.assignments.map((assignment) => (
+                                                {taskData.assignments.map((assignment, index) => (
                                                     <div
-                                                        key={assignment.id}
+                                                        key={assignment.id || assignment.employeeId || index}
                                                         className={`flex items-center justify-between p-3 rounded-lg ${
                                                             darkMode ? 'bg-gray-700' : 'bg-gray-50'
                                                         }`}
@@ -586,95 +1044,99 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClo
                                 </div>
                             )}
 
-                            {/* COMMENTS TAB */}
-                            {activeTab === "comments" && (
+                            {/* DISCUSSION TAB (PR-style) */}
+                            {activeTab === "discussion" && (
                                 <div className="space-y-4">
-                                    {/* Comment Form */}
-                                    <form onSubmit={handleAddComment} className={`p-4 rounded-lg ${
-                                        darkMode ? 'bg-gray-700' : 'bg-gray-50'
+                                    {/* Write Comment Box */}
+                                    <form onSubmit={handleAddComment} className={`border rounded-lg overflow-hidden ${
+                                        darkMode ? 'border-gray-600' : 'border-gray-300'
                                     }`}>
+                                        <div className={`px-4 py-2 text-xs font-medium border-b ${
+                                            darkMode ? 'bg-gray-700 border-gray-600 text-gray-300' : 'bg-gray-50 border-gray-200 text-gray-600'
+                                        }`}>
+                                            Write
+                                        </div>
                                         <textarea
                                             value={newComment}
-                                            onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+                                            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
                                                 setNewComment(e.target.value);
                                                 if (commentError) setCommentError(null);
                                             }}
-                                            placeholder="Add a comment..."
-                                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none resize-none ${
+                                            placeholder="Leave a comment..."
+                                            className={`w-full px-4 py-3 outline-none resize-none text-sm ${
                                                 darkMode
-                                                    ? 'bg-gray-800 border-gray-600 text-gray-100 placeholder-gray-400'
-                                                    : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                                                    ? 'bg-gray-800 text-gray-100 placeholder-gray-500'
+                                                    : 'bg-white text-gray-900 placeholder-gray-400'
                                             }`}
                                             rows={3}
                                         />
                                         {commentError && (
-                                            <p className={`mt-2 text-sm ${darkMode ? 'text-red-300' : 'text-red-600'}`}>
+                                            <p className={`px-4 py-1 text-xs ${darkMode ? 'text-red-300' : 'text-red-600'}`}>
                                                 {commentError}
                                             </p>
                                         )}
-                                        <div className="flex justify-end mt-2">
+                                        <div className={`flex justify-end px-4 py-2 border-t ${
+                                            darkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-200'
+                                        }`}>
                                             <button
                                                 type="submit"
                                                 disabled={!newComment.trim()}
-                                                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                                className="flex items-center gap-2 px-4 py-1.5 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
                                             >
-                                                <Send className="w-4 h-4" />
-                                                Post Comment
+                                                Comment
                                             </button>
                                         </div>
                                     </form>
 
-                                    {/* Comments List */}
-                                    <div className="space-y-3">
+                                    {/* Discussion Thread */}
+                                    <div className="space-y-0">
                                         {comments.length > 0 ? (
-                                            comments.map((comment) => {
+                                            comments.map((comment, idx) => {
                                                 const canDeleteComment = 
                                                     (user?.role === 'ADMIN' || user?.role === 'MANAGER') || 
                                                     comment.userId === user?.id;
                                                 
                                                 return (
                                                     <div
-                                                        key={comment.id}
-                                                        className={`border rounded-lg p-4 ${
-                                                            darkMode 
-                                                                ? 'bg-gray-700 border-gray-600' 
-                                                                : 'bg-white border-gray-200'
+                                                        key={comment.id || idx}
+                                                        className={`border-l-2 pl-4 py-4 ${
+                                                            idx === 0 ? '' : darkMode ? 'border-t border-gray-700' : 'border-t border-gray-100'
+                                                        } ${
+                                                            darkMode ? 'border-l-indigo-500' : 'border-l-indigo-400'
                                                         }`}
                                                     >
-                                                        <div className="flex items-start justify-between mb-2">
-                                                            <div className="flex items-center gap-3">
-                                                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold">
+                                                        <div className="flex items-center justify-between mb-2">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold">
                                                                     {comment.userName?.[0] || "U"}
                                                                 </div>
-                                                                <div>
-                                                                    <p className={`font-medium ${
-                                                                        darkMode ? 'text-gray-100' : 'text-gray-900'
-                                                                    }`}>
-                                                                        {comment.userName}
-                                                                    </p>
-                                                                    <p className={`text-xs ${
-                                                                        darkMode ? 'text-gray-400' : 'text-gray-500'
-                                                                    }`}>
-                                                                        {formatDate(comment.createdAt)}
-                                                                    </p>
-                                                                </div>
+                                                                <span className={`font-semibold text-sm ${
+                                                                    darkMode ? 'text-gray-100' : 'text-gray-900'
+                                                                }`}>
+                                                                    {comment.userName || 'User'}
+                                                                </span>
+                                                                <span className={`text-xs ${
+                                                                    darkMode ? 'text-gray-500' : 'text-gray-400'
+                                                                }`}>
+                                                                    commented {getRelativeTime(comment.createdAt)}
+                                                                </span>
                                                             </div>
                                                             {canDeleteComment && (
                                                                 <button
                                                                     onClick={() => handleDeleteComment(comment.id)}
-                                                                    className={`p-1 rounded transition ${
+                                                                    className={`p-1 rounded text-xs transition ${
                                                                         darkMode
-                                                                            ? 'text-red-400 hover:bg-red-900/20'
-                                                                            : 'text-red-600 hover:bg-red-50'
+                                                                            ? 'text-gray-500 hover:text-red-400 hover:bg-red-900/20'
+                                                                            : 'text-gray-400 hover:text-red-600 hover:bg-red-50'
                                                                     }`}
                                                                     title="Delete comment"
                                                                 >
-                                                                    <Trash2 className="w-4 h-4" />
+                                                                    <Trash2 className="w-3.5 h-3.5" />
                                                                 </button>
                                                             )}
                                                         </div>
-                                                        <p className={`whitespace-pre-wrap ${
-                                                            darkMode ? 'text-gray-200' : 'text-gray-700'
+                                                        <p className={`whitespace-pre-wrap text-sm leading-relaxed ${
+                                                            darkMode ? 'text-gray-300' : 'text-gray-700'
                                                         }`}>
                                                             {comment.comment}
                                                         </p>
@@ -685,10 +1147,10 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClo
                                             <div className={`text-center py-12 ${
                                                 darkMode ? 'text-gray-400' : 'text-gray-500'
                                             }`}>
-                                                <MessageSquare className={`w-12 h-12 mx-auto mb-2 ${
+                                                <MessageSquare className={`w-10 h-10 mx-auto mb-2 ${
                                                     darkMode ? 'text-gray-600' : 'text-gray-300'
                                                 }`} />
-                                                <p>No comments yet. Be the first to comment!</p>
+                                                <p className="text-sm">No discussion yet. Start the conversation!</p>
                                             </div>
                                         )}
                                         <div ref={commentsEndRef} />
@@ -815,7 +1277,7 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClo
                                                     </p>
                                                 </div>
                                             </div>
-                                            {Number(taskData?.estimatedHours || 0) && (
+                                            {Number(taskData?.estimatedHours || 0) > 0 && (
                                                 <div className="text-right">
                                                     <p className={`text-sm font-medium ${
                                                         darkMode ? 'text-indigo-300' : 'text-indigo-700'
@@ -850,9 +1312,9 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClo
                                         }`}>Time Entries</h3>
                                         <div className="space-y-2">
                                             {timeEntries.length > 0 ? (
-                                                timeEntries.map((entry) => (
+                                                timeEntries.map((entry, index) => (
                                                     <div
-                                                        key={entry.id}
+                                                        key={entry.id || index}
                                                         className={`flex items-center justify-between p-4 border rounded-lg ${
                                                             darkMode
                                                                 ? 'bg-gray-700 border-gray-600'
@@ -872,7 +1334,7 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClo
                                                                 <p className={`text-sm ${
                                                                     darkMode ? 'text-gray-400' : 'text-gray-600'
                                                                 }`}>
-                                                                    {new Date(entry.workDate).toLocaleDateString()}
+                                                                    {parseUTCDate(entry.workDate).toLocaleDateString()}
                                                                 </p>
                                                                 {entry.description && (
                                                                     <p className={`text-sm mt-1 ${
@@ -907,75 +1369,471 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClo
                                 </div>
                             )}
 
-                            {/* HISTORY TAB */}
-                            {activeTab === "history" && (
-                                <div className="space-y-3">
+                            {/* COMMITS TAB (Git-style) */}
+                            {activeTab === "commits" && (
+                                <div className="space-y-1">
+                                    {/* Branch indicator & selector */}
+                                    <div className="relative z-20 flex flex-wrap items-center justify-between gap-4 mb-4 pb-3 border-b border-gray-200 dark:border-gray-700">
+                                        <div className="flex items-center gap-2 relative z-30">
+                                            <button
+                                                onClick={() => {
+                                                    const nextVal = !showBranchDropdown;
+                                                    setShowBranchDropdown(nextVal);
+                                                    if (nextVal) {
+                                                        setIsLinking(false);
+                                                    }
+                                                }}
+                                                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md border font-mono text-sm transition ${
+                                                    darkMode 
+                                                        ? 'bg-gray-800 border-gray-700 hover:bg-gray-700 text-gray-200' 
+                                                        : 'bg-white border-gray-300 hover:bg-gray-50 text-gray-700'
+                                                }`}
+                                            >
+                                                <GitBranch className="w-3.5 h-3.5" />
+                                                <span>{activeBranch}</span>
+                                                <span className="text-[10px] opacity-60">▼</span>
+                                            </button>
+
+                                            {/* GitHub integration badge & settings button */}
+                                            <button
+                                                onClick={() => {
+                                                    const nextVal = !isLinking;
+                                                    setIsLinking(nextVal);
+                                                    if (nextVal) {
+                                                        setShowBranchDropdown(false);
+                                                    }
+                                                    setTempRepoPath(githubRepo || '');
+                                                    setTempToken(githubToken || '');
+                                                }}
+                                                className={`flex items-center gap-1.5 px-2 py-0.5 rounded border text-[11px] font-mono transition ${
+                                                    isLinkedToGithub
+                                                        ? darkMode
+                                                            ? 'bg-green-950/20 border-green-900/60 hover:bg-green-900/40 text-green-300'
+                                                            : 'bg-green-50 border-green-200 hover:bg-green-100 text-green-700'
+                                                        : darkMode
+                                                            ? 'bg-gray-800 border-gray-700 hover:bg-gray-900 text-gray-400'
+                                                            : 'bg-gray-50 border-gray-200 hover:bg-gray-100 text-gray-600'
+                                                }`}
+                                                title={githubRepo ? `Linked to ${githubRepo}` : "Link public GitHub repository"}
+                                            >
+                                                <Github className="w-3.5 h-3.5" />
+                                                <span className="hidden sm:inline">
+                                                    {githubRepo ? githubRepo.split('/')[1] || githubRepo : 'Link Repo'}
+                                                </span>
+                                                {isLinkedToGithub && <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />}
+                                            </button>
+
+                                            {/* Link GitHub Repo Form Popover */}
+                                            {isLinking && (
+                                                <div className={`absolute top-full left-24 mt-1 w-72 rounded-lg border shadow-2xl p-3 z-50 transition-all ${
+                                                    darkMode ? 'bg-gray-900 border-gray-700 shadow-indigo-950/50 text-gray-100' : 'bg-white border-gray-200 shadow-gray-400/30 text-gray-900'
+                                                }`}>
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <h4 className={`text-xs font-bold ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>
+                                                            GitHub Integration
+                                                        </h4>
+                                                        <button 
+                                                            onClick={() => setIsLinking(false)}
+                                                            className="text-gray-400 hover:text-gray-200 text-xs"
+                                                        >
+                                                            ✕
+                                                        </button>
+                                                    </div>
+                                                    <p className={`text-[10px] mb-3 leading-relaxed ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                        Enter a public GitHub repository path (e.g. <code>facebook/react</code>) and optional Personal Access Token.
+                                                    </p>
+                                                    <form 
+                                                        onSubmit={async (e) => {
+                                                            e.preventDefault();
+                                                            const val = tempRepoPath.trim();
+                                                            const tokenVal = tempToken.trim();
+                                                            if (tokenVal) {
+                                                                localStorage.setItem('github_global_token', tokenVal);
+                                                            } else {
+                                                                localStorage.removeItem('github_global_token');
+                                                            }
+                                                            setGithubToken(tokenVal);
+                                                            setIsLinking(false);
+                                                            try {
+                                                                const updated = await tasksAPI.update(task.id, { githubRepo: val });
+                                                                setGithubRepo(val);
+                                                                showToast(val ? `Repository linked: ${val}` : "GitHub repository disconnected", "success");
+                                                                if (onTaskUpdate) onTaskUpdate(updated);
+                                                                fetchTaskDetails();
+                                                            } catch (err) {
+                                                                console.error("Error linking repository:", err);
+                                                                showToast("Failed to link repository on server", "error");
+                                                            }
+                                                        }}
+                                                        className="space-y-2"
+                                                    >
+                                                        <input
+                                                            type="text"
+                                                            value={tempRepoPath}
+                                                            onChange={(e) => setTempRepoPath(e.target.value)}
+                                                            placeholder="owner/repo"
+                                                            className={`w-full px-2.5 py-1.5 text-xs rounded border outline-none font-mono ${
+                                                                darkMode 
+                                                                    ? 'bg-gray-800 border-gray-700 text-white focus:border-indigo-500' 
+                                                                    : 'bg-white border-gray-300 text-gray-900 focus:border-indigo-400'
+                                                            }`}
+                                                        />
+                                                        <input
+                                                            type="password"
+                                                            value={tempToken}
+                                                            onChange={(e) => setTempToken(e.target.value)}
+                                                            placeholder="GitHub Token / PAT (Optional)"
+                                                            className={`w-full px-2.5 py-1.5 text-xs rounded border outline-none font-mono ${
+                                                                darkMode 
+                                                                    ? 'bg-gray-800 border-gray-700 text-white focus:border-indigo-500' 
+                                                                    : 'bg-white border-gray-300 text-gray-900 focus:border-indigo-400'
+                                                            }`}
+                                                        />
+                                                        <div className="flex gap-2 justify-end">
+                                                            {githubRepo && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={async () => {
+                                                                        try {
+                                                                            const updated = await tasksAPI.update(task.id, { githubRepo: "" });
+                                                                            setGithubRepo('');
+                                                                            setIsLinking(false);
+                                                                            showToast("GitHub repository disconnected", "info");
+                                                                            if (onTaskUpdate) onTaskUpdate(updated);
+                                                                            fetchTaskDetails();
+                                                                        } catch (err) {
+                                                                            console.error("Error disconnecting repository:", err);
+                                                                            showToast("Failed to disconnect repository on server", "error");
+                                                                        }
+                                                                    }}
+                                                                    className="px-2 py-1 text-[10px] bg-red-650 hover:bg-red-750 text-white rounded font-medium"
+                                                                >
+                                                                    Disconnect
+                                                                </button>
+                                                            )}
+                                                            <button
+                                                                type="submit"
+                                                                className="px-2 py-1 text-[10px] bg-indigo-600 hover:bg-indigo-700 text-white rounded font-medium"
+                                                            >
+                                                                Link Repo
+                                                            </button>
+                                                        </div>
+                                                    </form>
+                                                </div>
+                                            )}
+
+                                            {showBranchDropdown && (
+                                                <div className={`absolute top-full left-0 mt-1 w-64 rounded-lg border shadow-2xl z-50 transition-all ${
+                                                    darkMode ? 'bg-gray-900 border-gray-700 shadow-indigo-950/50 text-gray-100' : 'bg-white border-gray-200 shadow-gray-400/30 text-gray-900'
+                                                }`}>
+                                                    <div className={`p-2 border-b text-xs font-semibold ${
+                                                        darkMode ? 'border-gray-700 text-gray-400' : 'border-gray-200 text-gray-500'
+                                                    }`}>
+                                                        Switch / Manage Branches
+                                                    </div>
+                                                    <div className="max-h-48 overflow-y-auto p-1 space-y-0.5 animate-fadeIn">
+                                                        {branches.map(b => (
+                                                            <div 
+                                                                key={b}
+                                                                className={`flex items-center justify-between px-2 py-1.5 rounded-md text-sm cursor-pointer transition ${
+                                                                    b === activeBranch
+                                                                        ? darkMode 
+                                                                            ? 'bg-indigo-950 border border-indigo-800 text-indigo-300 font-semibold' 
+                                                                            : 'bg-indigo-50 border border-indigo-100 text-indigo-700 font-semibold'
+                                                                        : darkMode 
+                                                                            ? 'hover:bg-gray-800 border border-transparent text-gray-300' 
+                                                                            : 'hover:bg-gray-100 border border-transparent text-gray-700'
+                                                                }`}
+                                                                onClick={async () => {
+                                                                    setActiveBranch(b);
+                                                                    setShowBranchDropdown(false);
+                                                                    try {
+                                                                        const updated = await tasksAPI.update(task.id, { activeBranch: b });
+                                                                        if (onTaskUpdate) onTaskUpdate(updated);
+                                                                        fetchTaskDetails();
+                                                                    } catch (err) {
+                                                                        console.error("Error setting active branch:", err);
+                                                                    }
+                                                                }}
+                                                            >
+                                                                <span className="font-mono flex items-center gap-1">
+                                                                    {b === activeBranch && <span className="text-indigo-500">✓</span>}
+                                                                    {b}
+                                                                </span>
+                                                                {b !== 'main' && (
+                                                                    <button
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            handleDeleteBranch(b);
+                                                                        }}
+                                                                        className={`p-1 rounded opacity-65 hover:opacity-100 hover:bg-red-50 dark:hover:bg-red-900/30 text-red-500`}
+                                                                        title="Delete branch"
+                                                                    >
+                                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                    <div className={`p-2 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                                                        {isCreatingBranch ? (
+                                                            <form onSubmit={handleCreateBranch} className="flex gap-1.5">
+                                                                <input
+                                                                    type="text"
+                                                                    value={newBranchName}
+                                                                    onChange={(e) => setNewBranchName(e.target.value)}
+                                                                    placeholder="branch-name"
+                                                                    className={`flex-1 px-2 py-1 text-xs rounded border outline-none font-mono ${
+                                                                        darkMode 
+                                                                            ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:border-indigo-500' 
+                                                                            : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400 focus:border-indigo-400'
+                                                                    }`}
+                                                                    autoFocus
+                                                                />
+                                                                <button
+                                                                    type="submit"
+                                                                    className="px-2 py-1 text-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded font-medium"
+                                                                >
+                                                                    Create
+                                                                </button>
+                                                            </form>
+                                                        ) : (
+                                                            <button
+                                                                onClick={() => setIsCreatingBranch(true)}
+                                                                className={`w-full py-1 text-xs text-center font-medium rounded border border-dashed transition ${
+                                                                    darkMode 
+                                                                        ? 'border-gray-700 hover:bg-gray-800 text-indigo-400' 
+                                                                        : 'border-gray-300 hover:bg-gray-50 text-indigo-600'
+                                                                }`}
+                                                            >
+                                                                + Create New Branch
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            <span className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                                · {auditLogs.length} commit{auditLogs.length !== 1 ? 's' : ''}
+                                            </span>
+                                        </div>
+
+                                        {activeBranch !== 'main' && (
+                                            <button
+                                                onClick={handleMergeBranch}
+                                                className={`flex items-center gap-1 px-3 py-1 text-xs font-semibold rounded-md border transition ${
+                                                    darkMode
+                                                        ? 'bg-indigo-950/40 border-indigo-900/60 hover:bg-indigo-900/40 text-indigo-300'
+                                                        : 'bg-indigo-50 border-indigo-150 hover:bg-indigo-100 text-indigo-700'
+                                                }`}
+                                            >
+                                                <Diff className="w-3.5 h-3.5" />
+                                                <span>Merge into main</span>
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {/* Local Commit Form */}
+                                    {!isLinkedToGithub && (
+                                        <div className={`mb-4 p-4 rounded-lg border ${
+                                            darkMode ? 'bg-gray-800/40 border-gray-700' : 'bg-gray-50 border-gray-200'
+                                        }`}>
+                                            {showCommitForm ? (
+                                                <form onSubmit={handleCreateSimulatedCommit} className="space-y-3">
+                                                    <div className="flex items-center justify-between border-b pb-1.5 border-gray-250 dark:border-gray-700">
+                                                        <span className="text-xs font-semibold flex items-center gap-1">
+                                                            <GitCommit className="w-3.5 h-3.5 text-indigo-500" />
+                                                            Create Local Commit on <code className="font-mono text-indigo-400 bg-indigo-950/20 px-1 py-0.5 rounded">{activeBranch}</code>
+                                                        </span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setShowCommitForm(false)}
+                                                            className="text-xs text-gray-500 hover:text-gray-300"
+                                                        >
+                                                            Cancel
+                                                        </button>
+                                                    </div>
+                                                    <div>
+                                                        <input
+                                                            type="text"
+                                                            value={newCommitMessage}
+                                                            onChange={(e) => setNewCommitMessage(e.target.value)}
+                                                            placeholder="Commit message (e.g. feat: add validation logic)"
+                                                            className={`w-full px-2.5 py-1.5 text-xs rounded border outline-none font-mono ${
+                                                                darkMode 
+                                                                    ? 'bg-gray-900 border-gray-700 text-white focus:border-indigo-500' 
+                                                                    : 'bg-white border-gray-300 text-gray-900 focus:border-indigo-400'
+                                                            }`}
+                                                            required
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <textarea
+                                                            value={newCommitDesc}
+                                                            onChange={(e) => setNewCommitDesc(e.target.value)}
+                                                            placeholder="Commit description (optional detailed notes)"
+                                                            rows={2}
+                                                            className={`w-full px-2.5 py-1.5 text-xs rounded border outline-none font-mono resize-none ${
+                                                                darkMode 
+                                                                    ? 'bg-gray-900 border-gray-700 text-white focus:border-indigo-500' 
+                                                                    : 'bg-white border-gray-300 text-gray-900 focus:border-indigo-400'
+                                                            }`}
+                                                        />
+                                                    </div>
+                                                    <div className="flex justify-end">
+                                                        <button
+                                                            type="submit"
+                                                            className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-xs font-medium flex items-center gap-1"
+                                                        >
+                                                            <GitCommit className="w-3.5 h-3.5" />
+                                                            Commit to {activeBranch}
+                                                        </button>
+                                                    </div>
+                                                </form>
+                                            ) : (
+                                                <button
+                                                    onClick={() => setShowCommitForm(true)}
+                                                    className={`w-full py-2 text-xs font-medium rounded border border-dashed transition flex items-center justify-center gap-1.5 ${
+                                                        darkMode 
+                                                            ? 'border-gray-700 hover:bg-gray-900 text-indigo-400 hover:border-indigo-500' 
+                                                            : 'border-gray-300 hover:bg-gray-100 text-indigo-600 hover:border-indigo-500'
+                                                    }`}
+                                                >
+                                                    <GitCommit className="w-3.5 h-3.5" />
+                                                    + Write Simulated Commit Message / Work Log
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+
                                     {auditLogs.length > 0 ? (
                                         <div className="relative">
-                                            <div className={`absolute left-4 top-0 bottom-0 w-0.5 ${
+                                            {/* Timeline line */}
+                                            <div className={`absolute left-[15px] top-0 bottom-0 w-[2px] ${
                                                 darkMode ? 'bg-gray-700' : 'bg-gray-200'
                                             }`} />
-                                            {auditLogs.map((log) => (
-                                                <div key={log.id} className="relative flex gap-4 pb-6">
-                                                    <div className="relative z-10">
-                                                        <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center">
-                                                            <History className="w-4 h-4 text-white" />
+
+                                            {auditLogs.map((log, idx) => (
+                                                <div key={log.id || idx} className="relative flex gap-4 pb-1 group">
+                                                    {/* Commit dot */}
+                                                    <div className="relative z-10 mt-1">
+                                                        <div className={`w-8 h-8 rounded-full ${getCommitColor(log.action)} flex items-center justify-center shadow-sm`}>
+                                                            <GitCommit className="w-4 h-4 text-white" />
                                                         </div>
                                                     </div>
-                                                    <div className={`flex-1 border rounded-lg p-4 ${
+
+                                                    {/* Commit card */}
+                                                    <div className={`flex-1 mb-3 rounded-lg border transition ${
                                                         darkMode
-                                                            ? 'bg-gray-700 border-gray-600'
-                                                            : 'bg-white border-gray-200'
+                                                            ? 'bg-gray-800 border-gray-700 group-hover:border-gray-600'
+                                                            : 'bg-white border-gray-200 group-hover:border-gray-300'
                                                     }`}>
-                                                        <div className="flex items-start justify-between mb-2">
-                                                            <div>
-                                                                <p className={`font-medium ${
+                                                        {/* Commit header */}
+                                                        <div className={`flex items-center justify-between px-4 py-2.5 border-b ${
+                                                            darkMode ? 'border-gray-700' : 'border-gray-100'
+                                                        }`}>
+                                                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                                <p className={`font-medium text-sm truncate ${
                                                                     darkMode ? 'text-gray-100' : 'text-gray-900'
                                                                 }`}>
                                                                     {log.action}
                                                                 </p>
-                                                                <p className={`text-sm ${
-                                                                    darkMode ? 'text-gray-400' : 'text-gray-600'
+                                                            </div>
+                                                            <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+                                                                {/* Branch badges */}
+                                                                {(() => {
+                                                                    let commitBranches: string[] = [];
+                                                                    if (isLinkedToGithub) {
+                                                                        commitBranches = [activeBranch];
+                                                                    } else {
+                                                                        if ((log as any).branch) {
+                                                                            commitBranches = [(log as any).branch];
+                                                                        } else {
+                                                                            commitBranches = ['main'];
+                                                                        }
+                                                                    }
+                                                                    return commitBranches.map(bName => (
+                                                                        <span 
+                                                                            key={bName} 
+                                                                            className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-mono border ${
+                                                                                bName === 'main'
+                                                                                    ? darkMode
+                                                                                        ? 'bg-blue-950/60 border-blue-900/50 text-blue-300'
+                                                                                        : 'bg-blue-50 border-blue-200 text-blue-700'
+                                                                                    : darkMode
+                                                                                        ? 'bg-indigo-950/60 border-indigo-900/50 text-indigo-300'
+                                                                                        : 'bg-indigo-50 border-indigo-200 text-indigo-700'
+                                                                            }`}
+                                                                        >
+                                                                            <GitBranch className="w-2.5 h-2.5" />
+                                                                            {bName}
+                                                                        </span>
+                                                                    ));
+                                                                })()}
+                                                                <code className={`px-2 py-0.5 rounded text-xs font-mono ${
+                                                                    darkMode ? 'bg-gray-700 text-indigo-400' : 'bg-gray-100 text-indigo-600'
                                                                 }`}>
-                                                                    by {log.userName || "System"} •{" "}
-                                                                    {formatDate(log.createdAt)}
-                                                                </p>
+                                                                    {getShortHash(log.id)}
+                                                                </code>
                                                             </div>
                                                         </div>
-                                                        {log.description && (
-                                                            <p className={`text-sm mt-2 ${
-                                                                darkMode ? 'text-gray-300' : 'text-gray-700'
-                                                            }`}>
-                                                                {log.description}
-                                                            </p>
-                                                        )}
-                                                        {log.fieldName && (
-                                                            <div className={`mt-3 p-3 rounded text-sm ${
-                                                                darkMode ? 'bg-gray-800' : 'bg-gray-50'
-                                                            }`}>
-                                                                <p className={`font-medium mb-1 ${
-                                                                    darkMode ? 'text-gray-300' : 'text-gray-700'
-                                                                }`}>
-                                                                    Changed:{" "}
-                                                                    <span className={darkMode ? 'text-indigo-400' : 'text-indigo-600'}>
-                                                                        {log.fieldName}
+
+                                                        {/* Commit body */}
+                                                        <div className="px-4 py-2">
+                                                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className="w-4 h-4 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-[8px] font-bold">
+                                                                        {(log.userName || 'S')[0]}
+                                                                    </div>
+                                                                    <span className={`text-xs ${
+                                                                        darkMode ? 'text-gray-400' : 'text-gray-600'
+                                                                    }`}>
+                                                                        <span className="font-medium">{log.userName || 'System'}</span>
+                                                                        {' committed '}
+                                                                        <span title={formatDate(log.createdAt)}>{getRelativeTime(log.createdAt)}</span>
                                                                     </span>
-                                                                </p>
-                                                                {log.oldValue && (
-                                                                    <p className={darkMode ? 'text-gray-400' : 'text-gray-600'}>
-                                                                        <span className={darkMode ? 'text-red-400 line-through' : 'text-red-600 line-through'}>
-                                                                            {log.oldValue}
-                                                                        </span>{" "}
-                                                                        →{" "}
-                                                                        <span className={`font-medium ${
-                                                                            darkMode ? 'text-green-400' : 'text-green-600'
-                                                                        }`}>
-                                                                            {log.newValue}
-                                                                        </span>
-                                                                    </p>
-                                                                )}
+                                                                </div>
                                                             </div>
-                                                        )}
+
+                                                            {log.description && (
+                                                                <p className={`text-xs mt-1.5 pl-6 ${
+                                                                    darkMode ? 'text-gray-400' : 'text-gray-500'
+                                                                }`}>
+                                                                    {log.description}
+                                                                </p>
+                                                            )}
+
+                                                            {/* Git diff block */}
+                                                            {log.fieldName && (
+                                                                <div className={`mt-2.5 ml-6 rounded-md border overflow-hidden font-mono text-xs ${
+                                                                    darkMode ? 'border-gray-700' : 'border-gray-200'
+                                                                }`}>
+                                                                    {/* Diff header */}
+                                                                    <div className={`px-3 py-1.5 flex items-center gap-2 ${
+                                                                        darkMode ? 'bg-gray-800 text-gray-400' : 'bg-gray-50 text-gray-500'
+                                                                    }`}>
+                                                                        <span className="font-semibold">{log.fieldName}</span>
+                                                                    </div>
+                                                                    {/* Diff lines */}
+                                                                    {log.oldValue && (
+                                                                        <div className={`px-3 py-1 flex items-start gap-2 ${
+                                                                            darkMode ? 'bg-red-950/40 text-red-300' : 'bg-red-50 text-red-700'
+                                                                        }`}>
+                                                                            <span className="select-none opacity-60 font-bold">−</span>
+                                                                            <span>{log.oldValue}</span>
+                                                                        </div>
+                                                                    )}
+                                                                    {log.newValue && (
+                                                                        <div className={`px-3 py-1 flex items-start gap-2 ${
+                                                                            darkMode ? 'bg-green-950/40 text-green-300' : 'bg-green-50 text-green-700'
+                                                                        }`}>
+                                                                            <span className="select-none opacity-60 font-bold">+</span>
+                                                                            <span>{log.newValue}</span>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             ))}
@@ -984,10 +1842,120 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClo
                                         <div className={`text-center py-12 ${
                                             darkMode ? 'text-gray-400' : 'text-gray-500'
                                         }`}>
-                                            <History className={`w-12 h-12 mx-auto mb-2 ${
+                                            <GitCommit className={`w-10 h-10 mx-auto mb-2 ${
                                                 darkMode ? 'text-gray-600' : 'text-gray-300'
                                             }`} />
-                                            <p>No activity history yet</p>
+                                            <p className="text-sm">No commits yet</p>
+                                            <p className={`text-xs mt-1 ${darkMode ? 'text-gray-600' : 'text-gray-400'}`}>
+                                                Changes to this task will appear here
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {activeTab === "history" && (
+                                <div className="space-y-4">
+                                    {systemLogs.length > 0 ? (
+                                        <div className="relative">
+                                            {/* Timeline line */}
+                                            <div className={`absolute left-[15px] top-0 bottom-0 w-[2px] ${
+                                                darkMode ? 'bg-gray-700' : 'bg-gray-200'
+                                            }`} />
+
+                                            {systemLogs.map((log, idx) => (
+                                                <div key={log.id || idx} className="relative flex gap-4 pb-1 group">
+                                                    {/* Audit dot */}
+                                                    <div className="relative z-10 mt-1">
+                                                        <div className={`w-8 h-8 rounded-full ${getCommitColor(log.action)} flex items-center justify-center shadow-sm`}>
+                                                            <History className="w-4 h-4 text-white" />
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Audit card */}
+                                                    <div className={`flex-1 mb-3 rounded-lg border transition ${
+                                                        darkMode
+                                                            ? 'bg-gray-800 border-gray-700 group-hover:border-gray-600'
+                                                            : 'bg-white border-gray-200 group-hover:border-gray-300'
+                                                    }`}>
+                                                        {/* Header */}
+                                                        <div className={`flex items-center justify-between px-4 py-2.5 border-b ${
+                                                            darkMode ? 'border-gray-700' : 'border-gray-100'
+                                                        }`}>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className={`font-semibold text-xs px-2 py-0.5 rounded-full ${
+                                                                    log.action === 'TASK_CREATED'
+                                                                        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                                                                        : log.action === 'STATUS_CHANGED'
+                                                                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                                                                        : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                                                                }`}>
+                                                                    {log.action}
+                                                                </span>
+                                                                {log.fieldName && (
+                                                                    <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                                        Updated <code className="font-mono font-bold">{log.fieldName}</code>
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <span className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                                                {getRelativeTime(log.createdAt)}
+                                                            </span>
+                                                        </div>
+
+                                                        {/* Card body */}
+                                                        <div className="px-4 py-2.5">
+                                                            <div className="flex items-center gap-2 mb-1.5">
+                                                                <div className="w-4 h-4 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-[8px] font-bold">
+                                                                    {(log.userName || 'S')[0]}
+                                                                </div>
+                                                                <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                                    By <span className="font-semibold">{log.userName || 'System'}</span>
+                                                                </span>
+                                                            </div>
+
+                                                            {log.description && (
+                                                                <p className={`text-xs pl-6 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                                                                    {log.description}
+                                                                </p>
+                                                            )}
+
+                                                            {/* Diff block */}
+                                                            {log.fieldName && (
+                                                                <div className={`mt-2.5 ml-6 rounded-md border overflow-hidden font-mono text-xs ${
+                                                                    darkMode ? 'border-gray-700' : 'border-gray-200'
+                                                                }`}>
+                                                                    {log.oldValue && (
+                                                                        <div className={`px-3 py-1 flex items-start gap-2 ${
+                                                                            darkMode ? 'bg-red-950/40 text-red-300' : 'bg-red-50 text-red-700'
+                                                                        }`}>
+                                                                            <span className="select-none opacity-60 font-bold">−</span>
+                                                                            <span>{log.oldValue}</span>
+                                                                        </div>
+                                                                    )}
+                                                                    {log.newValue && (
+                                                                        <div className={`px-3 py-1 flex items-start gap-2 ${
+                                                                            darkMode ? 'bg-green-950/40 text-green-300' : 'bg-green-50 text-green-700'
+                                                                        }`}>
+                                                                            <span className="select-none opacity-60 font-bold">+</span>
+                                                                            <span>{log.newValue}</span>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className={`text-center py-12 ${
+                                            darkMode ? 'text-gray-400' : 'text-gray-500'
+                                        }`}>
+                                            <History className={`w-10 h-10 mx-auto mb-2 ${
+                                                darkMode ? 'text-gray-600' : 'text-gray-300'
+                                            }`} />
+                                            <p className="text-sm">No history logs yet</p>
                                         </div>
                                     )}
                                 </div>
@@ -998,7 +1966,7 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClo
 
                 {/* Footer */}
                 <div className={`border-t p-4 ${
-                    darkMode ? 'border-gray-700 bg-gray-750' : 'border-gray-200 bg-gray-50'
+                    darkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-gray-50'
                 }`}>
                     <div className="flex items-center justify-between">
                         <div className={`flex items-center gap-2 text-sm ${
@@ -1024,6 +1992,21 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, isOpen, onClo
                                 >
                                     <XCircle className="w-4 h-4" />
                                     Cancel Task
+                                </button>
+                            )}
+
+                            {taskData?.status === "COMPLETED" && onCloneTask && (
+                                <button
+                                    onClick={() => {
+                                        if (taskData) {
+                                            onCloneTask(taskData);
+                                            onClose();
+                                        }
+                                    }}
+                                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition flex items-center gap-2 text-sm font-semibold"
+                                >
+                                    <RefreshCw className="w-4 h-4" />
+                                    Clone & Reopen
                                 </button>
                             )}
 

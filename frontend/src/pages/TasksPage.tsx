@@ -7,8 +7,8 @@
  * Integrates AI assignment suggestions, LSTM duration prediction, skill extraction,
  * and complexity analysis via dedicated child components.
  */
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Plus, Search, X, RefreshCw, Users, User, AlertTriangle, CheckCircle, XCircle, Sparkles, BookOpen } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { Plus, Search, X, RefreshCw, Users, User, AlertTriangle, CheckCircle, XCircle, Sparkles, BookOpen, Radar, Brain, BarChart3 } from 'lucide-react';
 import { tasksAPI, teamsAPI, employeesAPI, usersAPI, notificationsAPI, aiAPI, skillsAPI } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 import TaskDetailsModal from '../components/TaskDetailsModal';
@@ -16,11 +16,12 @@ import { useTheme } from '../contexts/ThemeContext';
 import AIAssignmentModal from '../components/AIAssignmentModal';
 import TaskDurationPredictor from '../components/TaskDurationPredictor';
 import SkillsMultiSelect from '../components/SkillsMultiSelect';
-import TaskComplexityAnalyzer from '../components/TaskComplexityAnalyzer';
-import TaskSkillsExtractor from '../components/TaskSkillsExtractor';
 import Pagination from '../components/Pagination';
+import AIBulkPlannerModal from '../components/AIBulkPlannerModal';
+import AIPrioritizerModal from '../components/AIPrioritizerModal';
+import TeamSkillGapRadarModal from '../components/TeamSkillGapRadarModal';
 import { useToast } from '../components/Toast';
-import type { PaginatedResponse, TaskFilters } from '../types';
+import type { PaginatedResponse, TaskFilters, Task, Team, Employee, User as UserType, AISuggestion } from '../types';
 
 /**
  * Task management page supporting CRUD operations, filtering, sorting, and AI-assisted assignment.
@@ -34,7 +35,7 @@ const TasksPage = () => {
   const { showToast } = useToast();
   
   // -- State: Data & Pagination --
-  const [tasks, setTasks] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [pendingRequestsCount, setPendingRequestsCount] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -53,28 +54,38 @@ const TasksPage = () => {
   const [priorityFilter, setPriorityFilter] = useState('ALL');
 
   // -- State: Auxiliary Data --
-  const [teams, setTeams] = useState<any[]>([]);
-  const [users, setUsers] = useState<any[]>([]);
-  const [employees, setEmployees] = useState<any[]>([]);
-  const [state, setState] = useState({ myEmployeeId: null });
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [users, setUsers] = useState<UserType[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [state, setState] = useState<{ myEmployeeId: string | null }>({ myEmployeeId: null });
 
   // -- State: UI & Modals --
   const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
   const [showDetailsModal, setShowDetailsModal] = useState<boolean>(false);
-  const [selectedTaskForDetails, setSelectedTaskForDetails] = useState<any>(null);
+  const [selectedTaskForDetails, setSelectedTaskForDetails] = useState<Task | null>(null);
   
   // Bulk Actions
-  const [selectedTasks, setSelectedTasks] = useState<any[]>([]);
+  const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
   const [bulkMode, setBulkMode] = useState<boolean>(false);
 
   // AI & Skills
   const [showAIModal, setShowAIModal] = useState<boolean>(false);
-  const [selectedTaskForAI, setSelectedTaskForAI] = useState<any>(null);
+  const [selectedTaskForAI, setSelectedTaskForAI] = useState<Task | null>(null);
   const [showAISuggestionsInModal, setShowAISuggestionsInModal] = useState<boolean>(false);
-  const [aiSuggestionsForNewTask, setAiSuggestionsForNewTask] = useState<any[]>([]);
+  const [aiSuggestionsForNewTask, setAiSuggestionsForNewTask] = useState<AISuggestion[]>([]);
   const [loadingAISuggestions, setLoadingAISuggestions] = useState<boolean>(false);
   const [predictedHours, setPredictedHours] = useState<number | null>(null);
-  const [selectedTeamEmployees, setSelectedTeamEmployees] = useState<any[]>([]);
+  const [showAIDetails, setShowAIDetails] = useState<boolean>(false);
+  const [showTeamDropdown, setShowTeamDropdown] = useState<boolean>(false);
+  const [showEmployeeDropdown, setShowEmployeeDropdown] = useState<boolean>(false);
+  const [showPriorityDropdown, setShowPriorityDropdown] = useState<boolean>(false);
+  const [selectedTeamEmployees, setSelectedTeamEmployees] = useState<Employee[]>([]);
+
+  // Per-task AI states
+  const [singleAITask, setSingleAITask] = useState<Task | null>(null);
+  const [showPrioritizerModal, setShowPrioritizerModal] = useState<boolean>(false);
+  const [showBulkPlannerModal, setShowBulkPlannerModal] = useState<boolean>(false);
+  const [showSkillGapRadarModal, setShowSkillGapRadarModal] = useState<boolean>(false);
 
   // Form Data
   const [formData, setFormData] = useState({
@@ -89,6 +100,11 @@ const TasksPage = () => {
     complexityScore: 0.5
   });
 
+  // -- State: Auto-Detection --
+  const [autoDetectedSkills, setAutoDetectedSkills] = useState<any[]>([]);
+  const [isAutoDetecting, setIsAutoDetecting] = useState<boolean>(false);
+  const autoDetectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const isAdmin = user?.role === 'ADMIN';
   const isManager = user?.role === 'MANAGER';
   const canManage = isAdmin || isManager;
@@ -98,6 +114,36 @@ const TasksPage = () => {
     complexityScore: formData.complexityScore || 0.5,
     requiredSkillIds: formData.requiredSkillIds || []
   }), [formData.priority, formData.complexityScore, formData.requiredSkillIds]);
+
+  const selectedTaskDetails = useMemo<Task[]>(
+    () => tasks.filter(t => selectedTasks.includes(t.id)),
+    [tasks, selectedTasks]
+  );
+
+  // -- Category color map for auto-detected skill pills --
+  const skillCategoryColors: Record<string, { light: string; dark: string }> = {
+    'Programming':   { light: 'bg-blue-100 text-blue-800 border-blue-300',      dark: 'bg-blue-900/40 text-blue-300 border-blue-700' },
+    'Frontend':      { light: 'bg-cyan-100 text-cyan-800 border-cyan-300',      dark: 'bg-cyan-900/40 text-cyan-300 border-cyan-700' },
+    'Backend':       { light: 'bg-green-100 text-green-800 border-green-300',    dark: 'bg-green-900/40 text-green-300 border-green-700' },
+    'DevOps':        { light: 'bg-orange-100 text-orange-800 border-orange-300',  dark: 'bg-orange-900/40 text-orange-300 border-orange-700' },
+    'Data Science':  { light: 'bg-purple-100 text-purple-800 border-purple-300',  dark: 'bg-purple-900/40 text-purple-300 border-purple-700' },
+    'Testing':       { light: 'bg-yellow-100 text-yellow-800 border-yellow-300',  dark: 'bg-yellow-900/40 text-yellow-300 border-yellow-700' },
+    'Finance':       { light: 'bg-emerald-100 text-emerald-800 border-emerald-300', dark: 'bg-emerald-900/40 text-emerald-300 border-emerald-700' },
+    'Marketing':     { light: 'bg-pink-100 text-pink-800 border-pink-300',        dark: 'bg-pink-900/40 text-pink-300 border-pink-700' },
+    'HR':            { light: 'bg-rose-100 text-rose-800 border-rose-300',        dark: 'bg-rose-900/40 text-rose-300 border-rose-700' },
+    'Design':        { light: 'bg-violet-100 text-violet-800 border-violet-300',  dark: 'bg-violet-900/40 text-violet-300 border-violet-700' },
+  };
+  const defaultSkillColor = { light: 'bg-gray-100 text-gray-800 border-gray-300', dark: 'bg-gray-700 text-gray-300 border-gray-600' };
+
+  const getSkillPillColor = (category: string) => {
+    const colors = skillCategoryColors[category] || defaultSkillColor;
+    return darkMode ? colors.dark : colors.light;
+  };
+
+  const aiModalTasks = useMemo<Task[]>(
+    () => singleAITask ? [singleAITask] : selectedTaskDetails,
+    [singleAITask, selectedTaskDetails]
+  );
 
   // -- Data Fetching Logic --
 
@@ -186,6 +232,47 @@ const TasksPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, priorityFilter, searchTerm]);
 
+  // -- Debounced Auto-Detection of Skills --
+  useEffect(() => {
+    if (!canManage || !showCreateModal) return;
+
+    const combinedText = `${formData.title} ${formData.description}`.trim();
+    if (combinedText.length <= 15) {
+      setAutoDetectedSkills([]);
+      return;
+    }
+
+    // Clear previous timer
+    if (autoDetectTimerRef.current) {
+      clearTimeout(autoDetectTimerRef.current);
+    }
+
+    autoDetectTimerRef.current = setTimeout(async () => {
+      setIsAutoDetecting(true);
+      try {
+        const response = await aiAPI.extractSkillsFromText({
+          task_title: formData.title.substring(0, 100),
+          task_description: combinedText,
+          min_confidence: 0.4
+        });
+        const skills = response.extracted_skills || [];
+        setAutoDetectedSkills(skills);
+      } catch (err: any) {
+        console.error('Auto-detect skills error:', err);
+        setAutoDetectedSkills([]);
+      } finally {
+        setIsAutoDetecting(false);
+      }
+    }, 1500);
+
+    return () => {
+      if (autoDetectTimerRef.current) {
+        clearTimeout(autoDetectTimerRef.current);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.title, formData.description, canManage, showCreateModal]);
+
   // Auto-refresh interval (Optional: keeping for real-time feel, but preventing conflict)
   // useEffect(() => {
   //   const interval = setInterval(() => {
@@ -230,7 +317,6 @@ const TasksPage = () => {
 
   const handlePredictionReceived = useCallback((hours) => {
     setPredictedHours(hours);
-    setFormData(prev => ({ ...prev, estimatedHours: hours }));
   }, []);
 
   // Team Selection Logic
@@ -396,6 +482,26 @@ const TasksPage = () => {
     }
   };
 
+  const handleCloneTask = (taskToClone: Task) => {
+    setPredictedHours(taskToClone.estimatedHours || null);
+    setShowAIDetails(false);
+    setShowTeamDropdown(false);
+    setShowEmployeeDropdown(false);
+    setShowPriorityDropdown(false);
+    setFormData({
+      title: taskToClone.title || '',
+      description: taskToClone.description || '',
+      priority: taskToClone.priority || 'MEDIUM',
+      estimatedHours: taskToClone.estimatedHours ? taskToClone.estimatedHours.toString() : '',
+      dueDate: taskToClone.dueDate ? new Date(taskToClone.dueDate).toISOString().split('T')[0] : '',
+      teamId: taskToClone.teamId || '',
+      assignedEmployeeId: taskToClone.assignedEmployeeId || '',
+      requiredSkillIds: taskToClone.requiredSkills ? taskToClone.requiredSkills.map(s => s.skillId) : [],
+      complexityScore: taskToClone.complexityScore || 0.5
+    });
+    setShowCreateModal(true);
+  };
+
   /**
    * Updates a task's status and sends completion notifications when marking COMPLETED.
    * @param {string} taskId - The ID of the task to update.
@@ -485,6 +591,42 @@ const TasksPage = () => {
     }
   };
 
+  const openPrioritizer = (task?: Task) => {
+    if (task) {
+      setSingleAITask(task);
+    } else if (selectedTasks.length === 0) {
+      showToast('Select tasks to prioritize.', 'warning');
+      return;
+    } else {
+      setSingleAITask(null);
+    }
+    setShowPrioritizerModal(true);
+  };
+
+  const openBulkPlanner = (task?: Task) => {
+    if (task) {
+      setSingleAITask(task);
+    } else if (selectedTasks.length === 0) {
+      showToast('Select tasks to plan assignments.', 'warning');
+      return;
+    } else {
+      setSingleAITask(null);
+    }
+    setShowBulkPlannerModal(true);
+  };
+
+  const openSkillGapRadar = (task?: Task) => {
+    if (task) {
+      setSingleAITask(task);
+    } else if (selectedTasks.length === 0) {
+      showToast('Select tasks to analyze skill gaps.', 'warning');
+      return;
+    } else {
+      setSingleAITask(null);
+    }
+    setShowSkillGapRadarModal(true);
+  };
+
   /**
    * Returns the Tailwind CSS badge classes for a given task priority level.
    * @param {string} priority - The task priority ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL').
@@ -559,6 +701,15 @@ const TasksPage = () => {
                   <button onClick={() => handleBulkStatusChange('IN_PROGRESS')} className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">Start ({selectedTasks.length})</button>
                   <button onClick={() => handleBulkStatusChange('COMPLETED')} className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm">Complete ({selectedTasks.length})</button>
                   <button onClick={handleBulkDelete} className="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm">Delete ({selectedTasks.length})</button>
+                  <button onClick={() => openPrioritizer()} className="px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm flex items-center gap-1">
+                    <Sparkles className="w-4 h-4" /> Prioritize ({selectedTasks.length})
+                  </button>
+                  <button onClick={() => openBulkPlanner()} className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm flex items-center gap-1">
+                    <Brain className="w-4 h-4" /> AI Plan ({selectedTasks.length})
+                  </button>
+                  <button onClick={() => openSkillGapRadar()} className="px-3 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 text-sm flex items-center gap-1">
+                    <Radar className="w-4 h-4" /> Skill Radar ({selectedTasks.length})
+                  </button>
                 </div>
               )}
             </>
@@ -575,7 +726,14 @@ const TasksPage = () => {
           </button>
           
           <button
-            onClick={() => setShowCreateModal(true)}
+            onClick={() => {
+              setPredictedHours(null);
+              setShowAIDetails(false);
+              setShowTeamDropdown(false);
+              setShowEmployeeDropdown(false);
+              setShowPriorityDropdown(false);
+              setShowCreateModal(true);
+            }}
             className={`flex items-center gap-2 px-6 py-3 rounded-lg hover:shadow-lg transition text-white ${
               canManage ? 'bg-gradient-to-r from-indigo-600 to-purple-600' : 'bg-gradient-to-r from-orange-600 to-red-600'
             }`}
@@ -597,7 +755,7 @@ const TasksPage = () => {
     )}
 
     {/* Filters & Sorting */}
-    <div className={`flex-shrink-0 mb-6 rounded-lg shadow p-4 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+    <div className={`flex-shrink-0 mb-6 rounded-lg shadow p-4 border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="relative">
           <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`} />
@@ -672,8 +830,8 @@ const TasksPage = () => {
           tasks.map((task, index) => (
             <div 
               key={task.id} 
-              className={`rounded-lg shadow p-6 hover:shadow-lg transition card-hover fade-in ${
-                darkMode ? 'bg-gray-800' : 'bg-white'
+              className={`rounded-lg shadow p-6 hover:shadow-lg transition card-hover fade-in border ${
+                darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'
               }`}
               style={{ animationDelay: `${index * 50}ms` }}
             >
@@ -747,8 +905,10 @@ const TasksPage = () => {
                 <div className="flex gap-2 mt-4">
                   <button
                     onClick={() => { setSelectedTaskForDetails(task); setShowDetailsModal(true); }}
-                    className={`flex-1 py-2 px-4 text-sm font-medium rounded-md transition ${
-                      darkMode ? 'text-indigo-400 hover:text-indigo-300 hover:bg-gray-700' : 'text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50'
+                    className={`flex-1 py-2 px-4 text-sm font-medium rounded-md border transition ${
+                      darkMode
+                        ? 'text-indigo-400 border-indigo-500/20 hover:text-indigo-300 hover:bg-gray-700/50 hover:border-indigo-500/40'
+                        : 'text-indigo-600 border-indigo-200 hover:text-indigo-700 hover:bg-indigo-50 hover:border-indigo-400'
                     }`}
                   >
                     View Details
@@ -820,6 +980,50 @@ const TasksPage = () => {
                     </button>
                   )}
                 </div>
+
+                {/* Per-Task AI Action Buttons (Admin/Manager only) */}
+                {canManage && !task.title.startsWith('[REQUEST]') && (
+                  <div className={`flex gap-2 mt-3 pt-3 border-t ${
+                    darkMode ? 'border-gray-700' : 'border-gray-100'
+                  }`}>
+                    <button
+                      onClick={() => openPrioritizer(task)}
+                      title="AI Prioritize this task"
+                      className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition ${
+                        darkMode
+                          ? 'bg-indigo-900/30 text-indigo-300 border border-indigo-700/50 hover:bg-indigo-900/50 hover:border-indigo-500'
+                          : 'bg-indigo-50 text-indigo-600 border border-indigo-200 hover:bg-indigo-100 hover:border-indigo-400'
+                      }`}
+                    >
+                      <BarChart3 className="w-3.5 h-3.5" />
+                      Prioritize
+                    </button>
+                    <button
+                      onClick={() => openBulkPlanner(task)}
+                      title="AI Plan assignment for this task"
+                      className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition ${
+                        darkMode
+                          ? 'bg-purple-900/30 text-purple-300 border border-purple-700/50 hover:bg-purple-900/50 hover:border-purple-500'
+                          : 'bg-purple-50 text-purple-600 border border-purple-200 hover:bg-purple-100 hover:border-purple-400'
+                      }`}
+                    >
+                      <Brain className="w-3.5 h-3.5" />
+                      AI Plan
+                    </button>
+                    <button
+                      onClick={() => openSkillGapRadar(task)}
+                      title="Analyze skill gaps for this task"
+                      className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition ${
+                        darkMode
+                          ? 'bg-teal-900/30 text-teal-300 border border-teal-700/50 hover:bg-teal-900/50 hover:border-teal-500'
+                          : 'bg-teal-50 text-teal-600 border border-teal-200 hover:bg-teal-100 hover:border-teal-400'
+                      }`}
+                    >
+                      <Radar className="w-3.5 h-3.5" />
+                      Skill Radar
+                    </button>
+                  </div>
+                )}
               </div>
             ))
           )}
@@ -850,7 +1054,14 @@ const TasksPage = () => {
               <h2 className={`text-2xl font-bold ${darkMode ? 'text-gray-100' : 'text-gray-900'}`}>
                 {canManage ? 'Create New Task' : 'Request New Task'}
               </h2>
-              <button onClick={() => setShowCreateModal(false)}>
+              <button onClick={() => {
+                setShowCreateModal(false);
+                setPredictedHours(null);
+                setShowAIDetails(false);
+                setShowTeamDropdown(false);
+                setShowEmployeeDropdown(false);
+                setShowPriorityDropdown(false);
+              }}>
                 <X className={`w-6 h-6 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`} />
               </button>
             </div>
@@ -870,71 +1081,252 @@ const TasksPage = () => {
                   placeholder="Task Title *"
                   value={formData.title}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({...formData, title: e.target.value})}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${
-                    darkMode ? 'bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                  className={`w-full px-3 py-2 border rounded-lg outline-none transition-all duration-200 ${
+                    darkMode 
+                      ? 'bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15' 
+                      : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10'
                   }`}
                   required
                 />
               </div>
-
-              {/* Only show AI features for Admin/Manager */}
-              {canManage && formData.title && (
-                <TaskComplexityAnalyzer
-                  title={formData.title}
-                  description={formData.description}
-                  onComplexityDetected={(score) => setFormData({...formData, complexityScore: score})}
-                  darkMode={darkMode}
-                />
-              )}
-              
               <div>
                 <textarea
                   placeholder="Description"
                   value={formData.description}
                   onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setFormData({...formData, description: e.target.value})}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${
-                    darkMode ? 'bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                  className={`w-full px-3 py-2 border rounded-lg outline-none transition-all duration-200 ${
+                    darkMode 
+                      ? 'bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15' 
+                      : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10'
                   }`}
                   rows={3}
                 />
               </div>
 
-              {/* Only show skill extraction for Admin/Manager */}
-              {canManage && (
-                <TaskSkillsExtractor
-                  taskTitle={formData.title}
-                  taskDescription={formData.description}
-                  onSkillsExtracted={(skillNames) => setFormData({...formData, requiredSkillIds: skillNames})}
-                  darkMode={darkMode}
-                />
+              {/* ✨ Auto-Detected Skills Pills (only for Admin/Manager) */}
+              {canManage && (autoDetectedSkills.length > 0 || isAutoDetecting) && (
+                <div className={`rounded-lg border p-4 transition-all duration-300 ${
+                  darkMode
+                    ? 'bg-gradient-to-r from-indigo-900/20 to-purple-900/20 border-indigo-800/50'
+                    : 'bg-gradient-to-r from-indigo-50/80 to-purple-50/80 border-indigo-200'
+                }`}>
+                  <div className="flex items-center gap-2 mb-3">
+                    {isAutoDetecting ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+                        <span className={`text-sm font-medium ${
+                          darkMode ? 'text-indigo-300' : 'text-indigo-700'
+                        }`}>
+                          ✨ AI detecting skills...
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className={`w-4 h-4 ${darkMode ? 'text-indigo-400' : 'text-indigo-600'}`} />
+                        <span className={`text-sm font-semibold ${
+                          darkMode ? 'text-indigo-300' : 'text-indigo-700'
+                        }`}>
+                          ✨ Auto-Detected Skills
+                        </span>
+                        <span className={`text-xs ml-auto ${
+                          darkMode ? 'text-gray-500' : 'text-gray-400'
+                        }`}>
+                          click to add/remove
+                        </span>
+                      </>
+                    )}
+                  </div>
+
+                  {autoDetectedSkills.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {autoDetectedSkills.map((skill, idx) => {
+                        const isSelected = (formData.requiredSkillIds || []).includes(skill.name);
+                        const pillColor = getSkillPillColor(skill.category || 'default');
+                        return (
+                          <button
+                            key={`${skill.name}-${idx}`}
+                            type="button"
+                            onClick={() => {
+                              const currentSkills = formData.requiredSkillIds || [];
+                              if (isSelected) {
+                                setFormData({
+                                  ...formData,
+                                  requiredSkillIds: currentSkills.filter((s: string) => s !== skill.name)
+                                });
+                              } else {
+                                setFormData({
+                                  ...formData,
+                                  requiredSkillIds: [...currentSkills, skill.name]
+                                });
+                              }
+                            }}
+                            className={`
+                              inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium
+                              border transition-all duration-300 cursor-pointer
+                              ${pillColor}
+                              ${isSelected
+                                ? 'ring-2 ring-offset-1 ring-indigo-500 shadow-md scale-105'
+                                : 'opacity-80 hover:opacity-100 hover:shadow-sm'
+                              }
+                            `}
+                            style={{
+                              animation: `fadeSlideUp 0.3s ease-out ${idx * 0.07}s both`
+                            }}
+                          >
+                            <span>{skill.name}</span>
+                            <span className={`inline-flex items-center gap-0.5 text-[10px] ${
+                              darkMode ? 'opacity-70' : 'opacity-60'
+                            }`}>
+                              <span className={`inline-block w-8 h-1 rounded-full ${
+                                darkMode ? 'bg-gray-600' : 'bg-gray-300'
+                              } overflow-hidden`}>
+                                <span
+                                  className={`block h-full rounded-full ${
+                                    skill.confidence > 0.8 ? 'bg-green-500' :
+                                    skill.confidence > 0.6 ? 'bg-yellow-500' :
+                                    'bg-orange-500'
+                                  }`}
+                                  style={{ width: `${(skill.confidence || 0) * 100}%` }}
+                                />
+                              </span>
+                              {((skill.confidence || 0) * 100).toFixed(0)}%
+                            </span>
+                            {isSelected && (
+                              <CheckCircle className="w-3 h-3 text-indigo-500" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               )}
+
+              {/* Fade-slide-up animation keyframes */}
+              <style>{`
+                @keyframes fadeSlideUp {
+                  from {
+                    opacity: 0;
+                    transform: translateY(8px);
+                  }
+                  to {
+                    opacity: 1;
+                    transform: translateY(0);
+                  }
+                }
+              `}</style>
+
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
+                <div className="relative">
                   <label className={`text-sm font-medium mb-1 block ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Priority *</label>
+                  
+                  {/* Hidden native select for standard HTML form/testing accessibility */}
                   <select
                     value={formData.priority}
                     onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData({...formData, priority: e.target.value})}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${
-                      darkMode ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300 text-gray-900'
-                    }`}
+                    className="hidden"
+                    style={{ display: 'none' }}
                   >
                     <option value="LOW">Low Priority</option>
                     <option value="MEDIUM">Medium Priority</option>
                     <option value="HIGH">High Priority</option>
                     <option value="CRITICAL">Critical Priority</option>
                   </select>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowPriorityDropdown(!showPriorityDropdown);
+                      setShowTeamDropdown(false);
+                      setShowEmployeeDropdown(false);
+                    }}
+                    className={`w-full px-3 py-2 border rounded-lg flex items-center justify-between text-left outline-none transition-all duration-200 cursor-pointer ${
+                      darkMode 
+                        ? 'bg-gray-700 border-gray-600 text-gray-100 hover:border-gray-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15' 
+                        : 'bg-white border-gray-300 text-gray-900 hover:border-gray-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className={`w-2 h-2 rounded-full ${
+                        formData.priority === 'LOW' ? 'bg-green-500' :
+                        formData.priority === 'HIGH' ? 'bg-orange-500' :
+                        formData.priority === 'CRITICAL' ? 'bg-red-500' : 'bg-blue-500'
+                      }`} />
+                      {formData.priority === 'LOW' ? 'Low Priority' :
+                       formData.priority === 'HIGH' ? 'High Priority' :
+                       formData.priority === 'CRITICAL' ? 'Critical Priority' : 'Medium Priority'}
+                    </span>
+                    <svg className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${showPriorityDropdown ? 'transform rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {showPriorityDropdown && (
+                    <>
+                      <div className="fixed inset-0 z-30" onClick={() => setShowPriorityDropdown(false)} />
+                      <div className={`absolute left-0 right-0 mt-1 rounded-xl shadow-xl border z-40 max-h-60 overflow-y-auto transition-all ${
+                        darkMode ? 'bg-gray-800 border-gray-700 text-gray-100' : 'bg-white border-gray-250 text-gray-900'
+                      }`}>
+                        {[
+                          { value: 'LOW', label: 'Low Priority', color: 'bg-green-500', desc: 'General backlog or low-urgency tasks' },
+                          { value: 'MEDIUM', label: 'Medium Priority', color: 'bg-blue-500', desc: 'Standard timeline deliverables' },
+                          { value: 'HIGH', label: 'High Priority', color: 'bg-orange-500', desc: 'Urgent milestones' },
+                          { value: 'CRITICAL', label: 'Critical Priority', color: 'bg-red-500', desc: 'Immediate attention, blocker' }
+                        ].map(opt => {
+                          const isSelected = formData.priority === opt.value;
+                          return (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              onClick={() => {
+                                setFormData({...formData, priority: opt.value});
+                                setShowPriorityDropdown(false);
+                              }}
+                              className={`w-full text-left px-4 py-2.5 text-sm transition-colors border-b last:border-0 cursor-pointer ${
+                                darkMode ? 'border-gray-700/50 hover:bg-gray-700/60' : 'border-gray-100 hover:bg-indigo-50/40'
+                              } ${isSelected ? (darkMode ? 'bg-indigo-950/40 text-indigo-400 font-semibold' : 'bg-indigo-50 text-indigo-700 font-semibold') : ''}`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className={`w-2 h-2 rounded-full ${opt.color}`} />
+                                <div className="font-semibold text-sm">{opt.label}</div>
+                              </div>
+                              <div className={`text-[10px] opacity-75 mt-0.5 ml-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{opt.desc}</div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 <div>
-                  <label className={`text-sm font-medium mb-1 block ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Estimated Hours</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className={`text-sm font-medium block ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Estimated Hours</label>
+                    {predictedHours !== null && (
+                      <button
+                        type="button"
+                        onClick={() => setFormData(prev => ({ ...prev, estimatedHours: predictedHours.toFixed(1) }))}
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 transition-all cursor-pointer ${
+                          formData.estimatedHours === predictedHours.toFixed(1)
+                            ? (darkMode ? 'bg-indigo-950/40 text-indigo-400 border border-indigo-900/50' : 'bg-indigo-50 text-indigo-700 border border-indigo-200')
+                            : (darkMode ? 'bg-purple-950/50 hover:bg-purple-900/30 text-purple-300 border border-purple-800/40' : 'bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200')
+                        }`}
+                      >
+                        ✨ AI Suggests: {predictedHours.toFixed(1)}h
+                        {formData.estimatedHours !== predictedHours.toFixed(1) && ' (Apply)'}
+                      </button>
+                    )}
+                  </div>
                   <input
                     type="number"
                     placeholder="Hours"
                     value={formData.estimatedHours}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({...formData, estimatedHours: e.target.value})}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${
-                      darkMode ? 'bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                    className={`w-full px-3 py-2 border rounded-lg outline-none transition-all duration-200 ${
+                      darkMode 
+                        ? 'bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-550 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15' 
+                        : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10'
                     }`}
                     step="0.5"
                   />
@@ -947,8 +1339,10 @@ const TasksPage = () => {
                     value={formData.dueDate}
                     min={new Date().toISOString().slice(0, 16)}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({...formData, dueDate: e.target.value})}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${
-                      darkMode ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300 text-gray-900'
+                    className={`w-full px-3 py-2 border rounded-lg outline-none transition-all duration-200 ${
+                      darkMode 
+                        ? 'bg-gray-700 border-gray-600 text-gray-100 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15' 
+                        : 'bg-white border-gray-300 text-gray-900 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10'
                     }`}
                     required
                   />
@@ -969,56 +1363,208 @@ const TasksPage = () => {
               )}
 
               {canManage && formData.priority && (
-                <div>
-                  <label className={`flex items-center gap-2 text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                    <Sparkles className="w-4 h-4" /> AI Duration Prediction (Optional)
-                  </label>
-                  <TaskDurationPredictor 
-                    taskData={taskData}
-                    description={formData.description}
-                    onPredictionReceived={handlePredictionReceived}
-                    darkMode={darkMode}
-                  />
+                <div className="mt-2">
+                  <div className="flex items-center">
+                    <button
+                      type="button"
+                      onClick={() => setShowAIDetails(!showAIDetails)}
+                      className={`text-xs flex items-center gap-1.5 font-medium transition-all cursor-pointer ${
+                        darkMode ? 'text-indigo-400 hover:text-indigo-300' : 'text-indigo-650 hover:text-indigo-700'
+                      }`}
+                    >
+                      <Brain className="w-3.5 h-3.5" />
+                      {showAIDetails ? "Hide AI Confidence & Insights" : "Show AI Confidence & Insights"}
+                    </button>
+                  </div>
+                  {showAIDetails && (
+                    <div style={{ animation: 'fadeSlideUp 0.3s ease-out' }} className="mt-2">
+                      <TaskDurationPredictor 
+                        taskData={taskData}
+                        description={formData.description}
+                        onPredictionReceived={handlePredictionReceived}
+                        darkMode={darkMode}
+                      />
+                    </div>
+                  )}
                 </div>
               )}
               
               {canManage && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
+                  <div className="relative">
                     <label className={`flex items-center gap-2 text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                       <Users className="w-4 h-4" /> Team (Optional)
                     </label>
+                    
+                    {/* Hidden native select for standard HTML form/testing accessibility */}
                     <select
                       value={formData.teamId}
                       onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData({...formData, teamId: e.target.value, assignedEmployeeId: ''})}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${
-                        darkMode ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300 text-gray-900'
-                      }`}
+                      className="hidden"
+                      style={{ display: 'none' }}
                     >
                       <option value="">-- Public Task (All Teams Can See) --</option>
                       {teams.map(team => (
                         <option key={team.id} value={team.id}>{team.name}</option>
                       ))}
                     </select>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowTeamDropdown(!showTeamDropdown);
+                        setShowEmployeeDropdown(false);
+                      }}
+                      className={`w-full px-3 py-2 border rounded-lg flex items-center justify-between text-left outline-none transition-all duration-200 cursor-pointer ${
+                        darkMode 
+                          ? 'bg-gray-700 border-gray-600 text-gray-100 hover:border-gray-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15' 
+                          : 'bg-white border-gray-300 text-gray-900 hover:border-gray-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10'
+                      }`}
+                    >
+                      <span className="truncate">
+                        {formData.teamId 
+                          ? (teams.find(t => t.id === formData.teamId)?.name || 'Select Team') 
+                          : 'Public Task (All Teams)'}
+                      </span>
+                      <svg className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${showTeamDropdown ? 'transform rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+
+                    {showTeamDropdown && (
+                      <>
+                        <div className="fixed inset-0 z-30" onClick={() => setShowTeamDropdown(false)} />
+                        <div className={`absolute left-0 right-0 mt-1 rounded-xl shadow-xl border z-40 max-h-60 overflow-y-auto transition-all ${
+                          darkMode ? 'bg-gray-800 border-gray-700 text-gray-100' : 'bg-white border-gray-250 text-gray-900'
+                        }`}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFormData({...formData, teamId: '', assignedEmployeeId: ''});
+                              setShowTeamDropdown(false);
+                            }}
+                            className={`w-full text-left px-4 py-2.5 text-sm transition-colors border-b last:border-0 cursor-pointer ${
+                              darkMode ? 'border-gray-700/50 hover:bg-gray-700/60' : 'border-gray-100 hover:bg-indigo-50/40'
+                            } ${!formData.teamId ? (darkMode ? 'bg-indigo-950/40 text-indigo-400 font-semibold' : 'bg-indigo-50 text-indigo-700 font-semibold') : ''}`}
+                          >
+                            <div className="font-semibold text-xs uppercase tracking-wider text-purple-500 mb-0.5">Public Access</div>
+                            <div className="text-sm font-medium">Public Task (All Teams)</div>
+                          </button>
+                          
+                          {teams.map(team => {
+                            const isSelected = formData.teamId === team.id;
+                            return (
+                              <button
+                                key={team.id}
+                                type="button"
+                                onClick={() => {
+                                  setFormData({...formData, teamId: team.id, assignedEmployeeId: ''});
+                                  setShowTeamDropdown(false);
+                                }}
+                                className={`w-full text-left px-4 py-2.5 text-sm transition-colors border-b last:border-0 cursor-pointer ${
+                                  darkMode ? 'border-gray-700/50 hover:bg-gray-700/60' : 'border-gray-100 hover:bg-indigo-50/40'
+                                } ${isSelected ? (darkMode ? 'bg-indigo-950/40 text-indigo-400 font-semibold' : 'bg-indigo-50 text-indigo-700 font-semibold') : ''}`}
+                              >
+                                <div className="font-medium text-sm">{team.name}</div>
+                                {team.department && (
+                                  <div className={`text-[10px] opacity-75 mt-0.5 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Department: {team.department}</div>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
                   </div>
 
                   {formData.teamId && selectedTeamEmployees.length > 0 ? (
-                    <div>
+                    <div className="relative">
                       <label className={`flex items-center gap-2 text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                         <User className="w-4 h-4" /> Assign to Specific Employee (Optional)
                       </label>
+                      
+                      {/* Hidden native select for standard HTML form/testing accessibility */}
                       <select
                         value={formData.assignedEmployeeId}
                         onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData({...formData, assignedEmployeeId: e.target.value})}
-                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${
-                          darkMode ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300 text-gray-900'
-                        }`}
+                        className="hidden"
+                        style={{ display: 'none' }}
                       >
                         <option value="">-- Entire Team --</option>
                         {selectedTeamEmployees.map(emp => (
                           <option key={emp.id} value={emp.id}>{emp.firstName} {emp.lastName}</option>
                         ))}
                       </select>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowEmployeeDropdown(!showEmployeeDropdown);
+                          setShowTeamDropdown(false);
+                        }}
+                        className={`w-full px-3 py-2 border rounded-lg flex items-center justify-between text-left outline-none transition-all duration-200 cursor-pointer ${
+                          darkMode 
+                            ? 'bg-gray-700 border-gray-600 text-gray-100 hover:border-gray-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15' 
+                            : 'bg-white border-gray-300 text-gray-900 hover:border-gray-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10'
+                        }`}
+                      >
+                        <span className="truncate">
+                          {formData.assignedEmployeeId
+                            ? (() => {
+                                const emp = selectedTeamEmployees.find(e => e.id === formData.assignedEmployeeId);
+                                return emp ? `${emp.firstName} ${emp.lastName}` : 'Select Employee';
+                              })()
+                            : 'Entire Team'}
+                        </span>
+                        <svg className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${showEmployeeDropdown ? 'transform rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+
+                      {showEmployeeDropdown && (
+                        <>
+                          <div className="fixed inset-0 z-30" onClick={() => setShowEmployeeDropdown(false)} />
+                          <div className={`absolute left-0 right-0 mt-1 rounded-xl shadow-xl border z-40 max-h-60 overflow-y-auto transition-all ${
+                            darkMode ? 'bg-gray-800 border-gray-700 text-gray-100' : 'bg-white border-gray-250 text-gray-900'
+                          }`}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setFormData({...formData, assignedEmployeeId: ''});
+                                setShowEmployeeDropdown(false);
+                              }}
+                              className={`w-full text-left px-4 py-2.5 text-sm transition-colors border-b last:border-0 cursor-pointer ${
+                                darkMode ? 'border-gray-700/50 hover:bg-gray-700/60' : 'border-gray-100 hover:bg-indigo-50/40'
+                              } ${!formData.assignedEmployeeId ? (darkMode ? 'bg-indigo-950/40 text-indigo-400 font-semibold' : 'bg-indigo-50 text-indigo-700 font-semibold') : ''}`}
+                            >
+                              <div className="font-semibold text-xs uppercase tracking-wider text-purple-500 mb-0.5">General Assignment</div>
+                              <div className="text-sm font-medium">Entire Team</div>
+                            </button>
+
+                            {selectedTeamEmployees.map(emp => {
+                              const isSelected = formData.assignedEmployeeId === emp.id;
+                              return (
+                                <button
+                                  key={emp.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setFormData({...formData, assignedEmployeeId: emp.id});
+                                    setShowEmployeeDropdown(false);
+                                  }}
+                                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors border-b last:border-0 cursor-pointer ${
+                                    darkMode ? 'border-gray-700/50 hover:bg-gray-700/60' : 'border-gray-100 hover:bg-indigo-50/40'
+                                  } ${isSelected ? (darkMode ? 'bg-indigo-950/40 text-indigo-400 font-semibold' : 'bg-indigo-50 text-indigo-700 font-semibold') : ''}`}
+                                >
+                                  <div className="font-medium text-sm">{emp.firstName} {emp.lastName}</div>
+                                  {emp.role && (
+                                    <div className={`text-[10px] opacity-75 mt-0.5 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Role: {emp.role}</div>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </>
+                      )}
                     </div>
                   ) : formData.teamId ? (
                     <div className={`flex items-center justify-center p-4 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
@@ -1103,11 +1649,16 @@ const TasksPage = () => {
             setShowDetailsModal(false);
             setSelectedTaskForDetails(null);
           }}
-          onTaskUpdate={() => {
+          onTaskUpdate={(updatedTask) => {
             fetchData();
-            setShowDetailsModal(false);
-            setSelectedTaskForDetails(null);
+            if (updatedTask) {
+              setSelectedTaskForDetails(updatedTask);
+            } else {
+              setShowDetailsModal(false);
+              setSelectedTaskForDetails(null);
+            }
           }}
+          onCloneTask={handleCloneTask}
         />
       )}
 
@@ -1125,6 +1676,34 @@ const TasksPage = () => {
           }}
         />
       )}
+
+      <AIPrioritizerModal
+        isOpen={showPrioritizerModal}
+        tasks={aiModalTasks}
+        onClose={() => { setShowPrioritizerModal(false); setSingleAITask(null); }}
+        onApplied={() => {
+          setShowPrioritizerModal(false);
+          setSingleAITask(null);
+          fetchData();
+        }}
+      />
+
+      <AIBulkPlannerModal
+        isOpen={showBulkPlannerModal}
+        tasks={aiModalTasks}
+        onClose={() => { setShowBulkPlannerModal(false); setSingleAITask(null); }}
+        onApplied={() => {
+          setShowBulkPlannerModal(false);
+          setSingleAITask(null);
+          fetchData();
+        }}
+      />
+
+      <TeamSkillGapRadarModal
+        isOpen={showSkillGapRadarModal}
+        tasks={aiModalTasks}
+        onClose={() => { setShowSkillGapRadarModal(false); setSingleAITask(null); }}
+      />
     </div>
   );
 };

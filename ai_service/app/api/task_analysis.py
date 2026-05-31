@@ -36,9 +36,11 @@ class TaskAnalysisRequest(BaseModel):
     Input for analyzing a task via its title and optional description.
 
     Attributes:
+        task_id (Optional[str]): Optional unique identifier for mapping results.
         title (str): The task title used as the primary classification signal.
         description (Optional[str]): Extended details for more accurate scoring.
     """
+    task_id: Optional[str] = None
     title: str
     description: Optional[str] = ""
 
@@ -145,7 +147,7 @@ class EstimationRequest(BaseModel):
 # ENDPOINTS
 
 @router.post("/analyze", response_model=TaskAnalysisResponse)
-@limiter.limit("15/minute")
+@limiter.limit("120/minute")
 async def analyze_task(
     request: Request,
     analysis_request: TaskAnalysisRequest,
@@ -431,7 +433,7 @@ async def get_task_categories(
         {
             'id': cat.value,
             'name': cat.value,
-            'description': self._get_category_description(cat)
+            'description': _get_category_description(cat)
         }
         for cat in TaskCategory
     ]
@@ -480,6 +482,7 @@ async def prioritize_backlog(
             )
             
             analyzed.append({
+                'task_id': task.task_id,
                 'title': task.title,
                 'complexity': analysis.complexity_score,
                 'category': analysis.category.value,

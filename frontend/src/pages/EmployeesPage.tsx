@@ -19,6 +19,7 @@ import SkillsInput from '../components/SkillsInput';
 import Pagination from '../components/Pagination';
 import PromotionModal from '../components/PromotionModal';
 import { useToast } from '../components/Toast';
+import { parseUTCDate } from '../utils/dateUtils';
 import type { PaginatedResponse, EmployeeFilters, Employee, User, EmployeeSkill, UserRole } from '../types';
 
 /**
@@ -271,7 +272,7 @@ const EmployeesPage = () => {
   const handleDismissUser = async (pendingUser: User) => {
     if (!window.confirm(`Dismiss ${pendingUser.username}? They will be removed from the company but can re-join later with a new code.`)) return;
     try {
-      await usersAPI.removeFromCompany(pendingUser.id);
+      await usersAPI.removeFromCompany(pendingUser.id, 'DISMISSED');
       showToast(`${pendingUser.username} has been dismissed from the company.`, 'success');
       await fetchUsers();
     } catch (e: any) {
@@ -288,7 +289,7 @@ const EmployeesPage = () => {
     if (!window.confirm(`Block ${pendingUser.email} from joining this company? This action will permanently prevent them from re-joining.`)) return;
     try {
       await blocklistAPI.block(pendingUser.email);
-      await usersAPI.removeFromCompany(pendingUser.id);
+      await usersAPI.removeFromCompany(pendingUser.id, 'BLOCKED');
       showToast(`${pendingUser.email} has been blocked and removed from the company.`, 'success');
       await fetchUsers();
     } catch (e: any) {
@@ -595,7 +596,7 @@ const EmployeesPage = () => {
         )}
 
       {/* Filters & Sorting */}
-      <div className={`flex-shrink-0 mb-6 rounded-lg shadow p-4 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+      <div className={`flex-shrink-0 mb-6 rounded-lg shadow p-4 border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
 
           {/* Search */}
@@ -681,7 +682,7 @@ const EmployeesPage = () => {
             employees.map((employee, index) => (
               <div
                 key={employee.id}
-                className={`rounded-lg shadow hover:shadow-lg transition p-6 ${darkMode ? 'bg-gray-800' : 'bg-white'
+                className={`rounded-lg shadow hover:shadow-lg transition p-6 border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'
                   }`}
                 style={{ animationDelay: `${index * 50}ms` }}
               >
@@ -732,7 +733,7 @@ const EmployeesPage = () => {
                       }`}>
                       <Calendar className={`h-4 w-4 mr-2 ${darkMode ? 'text-gray-500' : 'text-gray-400'
                         }`} />
-                      <span>Hired: {new Date(employee.hireDate).toLocaleDateString()}</span>
+                      <span>Hired: {parseUTCDate(employee.hireDate).toLocaleDateString()}</span>
                     </div>
                   )}
                 </div>
@@ -775,9 +776,9 @@ const EmployeesPage = () => {
                   <div className="flex gap-2">
                     <button
                       onClick={() => navigate(`/employees/${employee.id}`)}
-                      className={`flex-1 py-2 px-4 text-sm font-medium rounded-md transition ${darkMode
-                          ? 'text-blue-400 hover:text-blue-300 hover:bg-gray-700'
-                          : 'text-blue-600 hover:text-blue-700 hover:bg-blue-50'
+                      className={`flex-1 py-2 px-4 text-sm font-medium rounded-md border transition ${darkMode
+                          ? 'text-blue-400 border-blue-950 hover:text-blue-300 hover:bg-gray-700'
+                          : 'text-blue-600 border-blue-200 hover:text-blue-700 hover:bg-blue-50 hover:border-blue-400'
                         }`}
                     >
                       View Profile

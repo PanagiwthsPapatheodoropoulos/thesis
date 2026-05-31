@@ -116,6 +116,7 @@ public class TaskService {
             task.setComplexityScore(createDTO.getComplexityScore());
             task.setCreatedBy(createdBy);
             task.setStatus(TaskStatus.PENDING);
+            task.setPendingBy(createdBy);
             task.setActualHours(java.math.BigDecimal.ZERO);
             task.setCompany(createdBy.getCompany());
 
@@ -341,6 +342,7 @@ public class TaskService {
             task.setComplexityScore(createDTO.getComplexityScore());
             task.setCreatedBy(requestedBy);
             task.setStatus(TaskStatus.PENDING);
+            task.setPendingBy(requestedBy);
             task.setTeam(null);
             task.setActualHours(BigDecimal.ZERO);
             task.setCompany(requestedBy.getCompany());
@@ -680,6 +682,13 @@ public class TaskService {
 
         TaskStatus oldStatus = task.getStatus();
         task.setStatus(newStatus);
+
+        // Track status ownership
+        if (newStatus == TaskStatus.COMPLETED) {
+            task.setCompletedBy(updatedBy);
+        } else if (newStatus == TaskStatus.PENDING) {
+            task.setPendingBy(updatedBy);
+        }
 
         // Submit feedback when completed
         if (newStatus == TaskStatus.COMPLETED && task.getCompletedDate() == null) {
@@ -1351,6 +1360,11 @@ public class TaskService {
             auditLogService.logFieldChange(task, updatedBy, "status", task.getStatus().name(),
                     updateDTO.getStatus().name());
             task.setStatus(updateDTO.getStatus());
+            if (updateDTO.getStatus() == TaskStatus.COMPLETED) {
+                task.setCompletedBy(updatedBy);
+            } else if (updateDTO.getStatus() == TaskStatus.PENDING) {
+                task.setPendingBy(updatedBy);
+            }
             if (updateDTO.getStatus() == TaskStatus.COMPLETED && task.getCompletedDate() == null) {
                 task.setCompletedDate(LocalDateTime.now());
             }
@@ -1391,8 +1405,38 @@ public class TaskService {
             task.setComplexityScore(updateDTO.getComplexityScore());
         }
 
+        // Git fields (no audit log for these - they're developer metadata)
+        if (updateDTO.getGithubRepo() != null) {
+            task.setGithubRepo(updateDTO.getGithubRepo().isEmpty() ? null : updateDTO.getGithubRepo());
+        }
+        if (updateDTO.getBranches() != null) {
+            task.setBranches(updateDTO.getBranches().isEmpty() ? null : updateDTO.getBranches());
+        }
+        if (updateDTO.getActiveBranch() != null) {
+            task.setActiveBranch(updateDTO.getActiveBranch().isEmpty() ? null : updateDTO.getActiveBranch());
+        }
+        if (updateDTO.getCustomCommits() != null) {
+            task.setCustomCommits(updateDTO.getCustomCommits().isEmpty() ? null : updateDTO.getCustomCommits());
+        }
+
         Task updated = taskRepository.save(task);
-        return modelMapper.map(updated, TaskDTO.class);
+        TaskDTO dto = modelMapper.map(updated, TaskDTO.class);
+        
+        dto.setGithubRepo(updated.getGithubRepo());
+        dto.setBranches(updated.getBranches());
+        dto.setActiveBranch(updated.getActiveBranch());
+        dto.setCustomCommits(updated.getCustomCommits());
+        
+        if (updated.getCompletedBy() != null) {
+            dto.setCompletedById(updated.getCompletedBy().getId());
+            dto.setCompletedByName(updated.getCompletedBy().getUsername());
+        }
+        if (updated.getPendingBy() != null) {
+            dto.setPendingById(updated.getPendingBy().getId());
+            dto.setPendingByName(updated.getPendingBy().getUsername());
+        }
+        
+        return dto;
     }
 
     /**
@@ -1409,11 +1453,34 @@ public class TaskService {
     })
     @Transactional
     public void deleteTask(UUID id) {
-        if (!taskRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Task not found");
+        Task task = taskRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Task not found"));
+
+        List<UUID> employeeUserIds = new ArrayList<>();
+        if (task.getAssignments() != null) {
+            for (TaskAssignment assignment : task.getAssignments()) {
+                if (assignment.getEmployee() != null && assignment.getEmployee().getUser() != null) {
+                    employeeUserIds.add(assignment.getEmployee().getUser().getId());
+                }
+            }
         }
 
         taskRepository.deleteById(id);
+
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    for (UUID userId : employeeUserIds) {
+                        broadcastService.broadcastTaskDeleted(userId, id);
+                    }
+                }
+            });
+        } else {
+            for (UUID userId : employeeUserIds) {
+                broadcastService.broadcastTaskDeleted(userId, id);
+            }
+        }
     }
 
     /** Broadcasts a task-created event to appropriate users via WebSocket. */
@@ -1661,6 +1728,22 @@ public class TaskService {
         if (task.getCreatedBy() != null) {
             dto.setCreatedBy(task.getCreatedBy().getId());
             dto.setCreatedByName(task.getCreatedBy().getUsername());
+        }
+
+        // Git fields
+        dto.setGithubRepo(task.getGithubRepo());
+        dto.setBranches(task.getBranches());
+        dto.setActiveBranch(task.getActiveBranch());
+        dto.setCustomCommits(task.getCustomCommits());
+
+        // Status ownership
+        if (task.getCompletedBy() != null) {
+            dto.setCompletedById(task.getCompletedBy().getId());
+            dto.setCompletedByName(task.getCompletedBy().getUsername());
+        }
+        if (task.getPendingBy() != null) {
+            dto.setPendingById(task.getPendingBy().getId());
+            dto.setPendingByName(task.getPendingBy().getUsername());
         }
 
         return dto;

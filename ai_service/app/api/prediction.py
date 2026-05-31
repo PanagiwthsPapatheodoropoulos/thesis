@@ -74,7 +74,7 @@ class PredictionResponse(BaseModel):
 # ============================================================
 
 @router.post("/predict", response_model=PredictionResponse)
-@limiter.limit("10/minute")
+@limiter.limit("120/minute")
 async def predict_task_duration(
     request: Request,
     prediction_request: PredictionRequest,

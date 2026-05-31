@@ -9,8 +9,11 @@ import com.thesis.smart_resource_planner.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
+import com.thesis.smart_resource_planner.enums.NotificationType;
+import com.thesis.smart_resource_planner.enums.NotificationSeverity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.context.annotation.Lazy;
 
 import java.util.List;
 import java.util.Optional;
@@ -47,6 +50,10 @@ public class UserService {
     private final TaskPermissionRepository taskPermissionRepository;
     private final ModelMapper modelMapper;
     private final BrevoEmailService brevoEmailService;
+    private final CompanyRepository companyRepository;
+    private final CompanyBlocklistRepository companyBlocklistRepository;
+    @Lazy
+    private final NotificationService notificationService;
 
     /**
      * Retrieves a user by their unique identifier.
@@ -407,13 +414,16 @@ public class UserService {
      * @throws ResourceNotFoundException if the user does not exist
      */
     @Transactional
-    public void removeUserFromCompany(UUID userId) {
+    public void removeUserFromCompany(UUID userId, String reason) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + userId));
 
         String companyName = user.getCompany() != null ? user.getCompany().getName() : null;
         String email = user.getEmail();
         String username = user.getUsername();
+
+        String normalizedReason = reason != null ? reason.trim().toUpperCase() : "DISMISSED";
+        boolean isBlocked = "BLOCKED".equals(normalizedReason);
 
         log.info("Removing user {} ({}) from company {}", username, userId,
                 companyName != null ? companyName : "none");
@@ -425,11 +435,82 @@ public class UserService {
 
         userRepository.save(user);
 
+        // Notify the user with next steps
+        try {
+            String title = isBlocked ? "Company Access Blocked" : "Join Request Declined";
+            String message = isBlocked
+                    ? String.format(
+                            "Your access to %s was blocked. You can join another company with a different code or contact an admin if this is a mistake.",
+                            companyName != null ? companyName : "the company")
+                    : String.format(
+                            "Your join request to %s was declined. You can retry with a new code or join another company.",
+                            companyName != null ? companyName : "the company");
+
+            NotificationCreateDTO notification = NotificationCreateDTO.builder()
+                    .userId(user.getId())
+                    .type(NotificationType.JOIN_REJECTED)
+                    .title(title)
+                    .message(message)
+                    .severity(NotificationSeverity.WARNING)
+                    .build();
+
+            notificationService.createNotification(notification);
+        } catch (Exception e) {
+            log.warn("Failed to create join rejection notification: {}", e.getMessage());
+        }
+
         // Send dismissal email (non-blocking)
         try {
             brevoEmailService.sendDismissalEmail(email, username, companyName);
         } catch (Exception e) {
             log.warn("Failed to send dismissal email to {}: {}", email, e.getMessage());
         }
+    }
+
+    /**
+     * Joins an existing company using a company code.
+     */
+    @Transactional
+    public UserDTO joinCompany(UUID userId, String companyCode) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + userId));
+
+        if (user.getCompany() != null) {
+            throw new IllegalStateException("User already belongs to a company");
+        }
+
+        Company company = companyRepository.findByJoinCode(companyCode)
+                .orElseThrow(() -> new ResourceNotFoundException("Invalid company code"));
+
+        if (companyBlocklistRepository.existsByCompanyIdAndEmailIgnoreCase(company.getId(), user.getEmail())) {
+            throw new IllegalStateException("Your email address has been blocked from joining this company.");
+        }
+
+        user.setCompany(company);
+        user.setRole(UserRole.USER);
+        User savedUser = userRepository.save(user);
+
+        // Notify admins
+        try {
+            List<User> adminsAndManagers = userRepository.findByRoleAndCompanyId(UserRole.ADMIN, company.getId());
+            adminsAndManagers.addAll(userRepository.findByRoleAndCompanyId(UserRole.MANAGER, company.getId()));
+
+            for (User adminOrManager : adminsAndManagers) {
+                NotificationCreateDTO notification = new NotificationCreateDTO();
+                notification.setUserId(adminOrManager.getId());
+                notification.setType(NotificationType.JOIN_REQUEST);
+                notification.setTitle("🔔 New Join Request");
+                notification.setMessage(String.format(
+                        "User '%s' (%s) is waiting for approval to join your company. Review their request in the Employees page.",
+                        savedUser.getUsername(), savedUser.getEmail()));
+                notification.setSeverity(NotificationSeverity.INFO);
+
+                notificationService.createNotification(notification);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to send join request notification: {}", e.getMessage());
+        }
+
+        return modelMapper.map(savedUser, UserDTO.class);
     }
 }

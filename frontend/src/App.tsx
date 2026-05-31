@@ -86,6 +86,11 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode;
     return <Navigate to="/login" replace />;
   }
 
+  // Blocked/dismissed users (no company) must go through company setup first
+  if (!user.companyId && user.role !== 'SUPER_ADMIN') {
+    return <Navigate to="/company-setup" replace />;
+  }
+
   if (allowedRoles && !allowedRoles.includes(user.role)) {
     return <Navigate to="/dashboard" replace />;
   }

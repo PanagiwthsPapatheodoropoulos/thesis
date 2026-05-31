@@ -84,7 +84,7 @@ describe("TaskDetailsModal additional coverage", () => {
     renderModal();
     await waitFor(() => expect(mocks.getById).toHaveBeenCalled());
 
-    fireEvent.click(screen.getByText("Time"));
+    fireEvent.click(screen.getByText("Time Log"));
     await waitFor(() => expect(screen.getByText("Alice")).toBeInTheDocument());
 
     // Check hours value exists anywhere in the time tab DOM
@@ -97,7 +97,7 @@ describe("TaskDetailsModal additional coverage", () => {
     renderModal();
     await waitFor(() => expect(mocks.getById).toHaveBeenCalled());
 
-    fireEvent.click(screen.getByText("Time"));
+    fireEvent.click(screen.getByText("Time Log"));
     const notesInput = document.querySelector('input[placeholder*="note"], textarea[placeholder*="note"], input[name="notes"]');
     if (notesInput) {
       fireEvent.change(notesInput, { target: { value: "progress note" } });
@@ -159,10 +159,10 @@ describe("TaskDetailsModal additional coverage", () => {
 
     fireEvent.click(screen.getByText("History"));
     await waitFor(() => {
-      const noHistory = screen.queryByText(/no history/i) || screen.queryByText(/no audit/i) || screen.queryByText(/empty/i);
+      const noHistory = screen.queryByText(/no history/i) || screen.queryByText(/no audit/i) || screen.queryByText(/empty/i) || screen.queryByText(/no commits/i);
       if (!noHistory) {
         // If no empty message, at least the tab rendered without crashing
-        expect(screen.getByText("History")).toBeInTheDocument();
+        expect(screen.getByText("Commits")).toBeInTheDocument();
       } else {
         expect(noHistory).toBeInTheDocument();
       }
@@ -174,7 +174,7 @@ describe("TaskDetailsModal additional coverage", () => {
     renderModal();
     await waitFor(() => expect(mocks.getById).toHaveBeenCalled());
 
-    fireEvent.click(screen.getByText("Comments"));
+    fireEvent.click(screen.getByText("Discussion"));
     const textarea = document.querySelector("textarea");
     fireEvent.change(textarea, { target: { value: "failing comment" } });
     fireEvent.submit(textarea.closest("form"));
@@ -231,7 +231,7 @@ describe("TaskDetailsModal additional coverage", () => {
     renderModal();
     await waitFor(() => expect(mocks.getById).toHaveBeenCalled());
 
-    fireEvent.click(screen.getByText("Time"));
+    fireEvent.click(screen.getByText("Time Log"));
     const numberInput = document.querySelector('input[type="number"]');
     fireEvent.change(numberInput, { target: { value: "-1" } });
     fireEvent.submit(numberInput.closest("form"));

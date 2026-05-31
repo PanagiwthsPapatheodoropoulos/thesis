@@ -216,6 +216,16 @@ class AIControllerDedicatedTest {
     }
 
     @Test
+    void extractSkills_success_returnsBody() {
+        when(restTemplate.exchange(contains("/skills/extract"), eq(HttpMethod.POST), any(HttpEntity.class),
+                ArgumentMatchers.<ParameterizedTypeReference<Map<String, Object>>>any()))
+                .thenReturn(ResponseEntity.ok(Map.of("skills", List.of("Java", "Spring"))));
+        var res = controller.extractSkills(Map.of("text", "java spring"), principal, "Bearer t");
+        assertEquals(200, res.getStatusCode().value());
+        assertEquals(2, ((List<?>) res.getBody().get("skills")).size());
+    }
+
+    @Test
     void getProductivityAnalytics_defaultsWhenRequestNull() {
         when(aiService.getProductivityAnalytics(eq(30), eq(false), anyString(), any(UUID.class)))
                 .thenReturn(Map.of("window_days", 30));
@@ -266,4 +276,90 @@ class AIControllerDedicatedTest {
         assertEquals(200, res.getStatusCode().value());
         assertTrue(String.valueOf(res.getBody().get("error")).contains("anomaly down"));
     }
+
+    @Test
+    void bulkOptimizeAssignments_defaultsToGeneticWhenNotSpecified() {
+        when(aiService.bulkOptimizeAssignments(anyList(), eq(true), anyString(), any(UUID.class)))
+                .thenReturn(List.of(Map.of("taskId", "t1")));
+        var id = UUID.randomUUID().toString();
+        var res = controller.bulkOptimizeAssignments(
+                Map.of("taskIds", List.of(id)),
+                principal,
+                "Bearer t");
+        assertEquals(200, res.getStatusCode().value());
+        assertEquals("genetic_algorithm", res.getBody().get("optimizationMethod"));
+    }
+
+    @Test
+    void chatWithAI_error_returnsSystemErrorResponse() {
+        when(restTemplate.exchange(contains("/chatbot/query"), eq(HttpMethod.POST), any(HttpEntity.class),
+                ArgumentMatchers.<ParameterizedTypeReference<Map<String, Object>>>any()))
+                .thenThrow(new RuntimeException("chat down"));
+        var res = controller.chatWithAI(Map.of("query", "hello"), principal, "Bearer t");
+        assertEquals(200, res.getStatusCode().value());
+        assertTrue(String.valueOf(res.getBody().get("response")).contains("System error"));
+    }
+
+    @Test
+    void getAssignmentSuggestions_serviceError_returnsEmptySuggestions() {
+        when(aiService.getAssignmentSuggestions(any(UUID.class), anyString(), anyString(), anyString(), any(), anyList(), anyDouble(),
+                anyString(), any(UUID.class)))
+                .thenThrow(new RuntimeException("assignments down"));
+
+        var res = controller.getAssignmentSuggestions(
+                Map.of("taskId", UUID.randomUUID().toString(), "requiredSkillIds", List.of()),
+                principal,
+                "Bearer t");
+        assertEquals(200, res.getStatusCode().value());
+        assertEquals(0, ((List<?>) res.getBody().get("suggestions")).size());
+    }
+
+        @Test
+        void prioritizeBacklog_success_returnsBody() {
+                List<Map<String, Object>> tasks = List.of(Map.of("title", "Task 1"));
+                when(aiService.prioritizeBacklog(eq(tasks), eq("t"), eq(principal.getCompanyId())))
+                                .thenReturn(Map.of("prioritized", List.of(Map.of("title", "Task 1")), "total_tasks", 1));
+
+                var res = controller.prioritizeBacklog(tasks, principal, "Bearer t");
+
+                assertEquals(200, res.getStatusCode().value());
+                assertEquals(1, res.getBody().get("total_tasks"));
+                verify(aiService).prioritizeBacklog(eq(tasks), eq("t"), eq(principal.getCompanyId()));
+        }
+
+        @Test
+        void prioritizeBacklog_nullResult_returnsDefaultPayload() {
+                when(aiService.prioritizeBacklog(anyList(), anyString(), any(UUID.class))).thenReturn(null);
+                var res = controller.prioritizeBacklog(List.of(), principal, "Bearer t");
+                assertEquals(200, res.getStatusCode().value());
+                assertEquals(0, res.getBody().get("total_tasks"));
+        }
+
+        @Test
+        void suggestTeamSkills_success_returnsBody() {
+                when(aiService.suggestTeamSkills(anyMap(), eq("t"), eq(principal.getCompanyId())))
+                                .thenReturn(Map.of("suggestions", List.of(Map.of("skill_name", "Java"))));
+
+                var res = controller.suggestTeamSkills(Map.of("team_tasks", List.of()), principal, "Bearer t");
+
+                assertEquals(200, res.getStatusCode().value());
+                assertEquals(1, ((List<?>) res.getBody().get("suggestions")).size());
+        }
+
+        @Test
+        void suggestTeamSkills_nullResult_returnsDefaultPayload() {
+                when(aiService.suggestTeamSkills(anyMap(), anyString(), any(UUID.class))).thenReturn(null);
+                var res = controller.suggestTeamSkills(Map.of("team_tasks", List.of()), principal, "Bearer t");
+                assertEquals(200, res.getStatusCode().value());
+                assertEquals(0, res.getBody().get("total_suggestions"));
+        }
+
+        @Test
+        void suggestTeamSkills_error_returnsOkWithError() {
+                when(aiService.suggestTeamSkills(anyMap(), anyString(), any(UUID.class)))
+                                .thenThrow(new RuntimeException("skills down"));
+                var res = controller.suggestTeamSkills(Map.of("team_tasks", List.of()), principal, "Bearer t");
+                assertEquals(200, res.getStatusCode().value());
+                assertTrue(String.valueOf(res.getBody().get("error")).contains("skills down"));
+        }
 }

@@ -124,4 +124,17 @@ public class DepartmentController {
         departmentService.deleteDepartment(name, currentUser.getId());
         return ResponseEntity.noContent().build();
     }
+
+    /**
+     * Toggles dev info access for a department.
+     */
+    @PutMapping("/{name}/toggle-dev-info")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    public ResponseEntity<DepartmentDTO> toggleDevInfo(
+            @PathVariable String name,
+            @RequestParam boolean enabled,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        DepartmentDTO updated = departmentService.toggleDevInfo(name, enabled, currentUser.getId());
+        return ResponseEntity.ok(updated);
+    }
 }

@@ -329,11 +329,13 @@ class TaskServiceCoverageDedicatedTest {
     @DisplayName("deleteTask checks existence before delete")
     void deleteTask_paths() {
         UUID taskId = UUID.randomUUID();
-        when(taskRepository.existsById(taskId)).thenReturn(false);
+        when(taskRepository.findById(taskId)).thenReturn(Optional.empty());
         assertThrows(com.thesis.smart_resource_planner.exception.ResourceNotFoundException.class,
                 () -> taskService.deleteTask(taskId));
 
-        when(taskRepository.existsById(taskId)).thenReturn(true);
+        Task task = new Task();
+        task.setId(taskId);
+        when(taskRepository.findById(taskId)).thenReturn(Optional.of(task));
         taskService.deleteTask(taskId);
         verify(taskRepository).deleteById(taskId);
     }

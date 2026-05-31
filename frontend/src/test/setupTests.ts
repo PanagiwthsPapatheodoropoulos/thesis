@@ -1,6 +1,41 @@
 // @ts-nocheck
 import "@testing-library/jest-dom/vitest";
-import { vi, beforeEach } from "vitest";
+import { vi, beforeEach, afterEach } from "vitest";
+
+
+// ── Real timer tracking ──────────────────────────────────────────────
+// Components like UserDashboardPage create real setInterval timers.
+// If not cleaned up, these keep the Node.js worker process alive after
+// all tests finish, causing Vitest to hang indefinitely.
+const _realSetInterval = globalThis.setInterval;
+const _realClearInterval = globalThis.clearInterval;
+const _realSetTimeout = globalThis.setTimeout;
+const _realClearTimeout = globalThis.clearTimeout;
+const _activeIntervals = new Set();
+const _activeTimeouts = new Set();
+
+globalThis.setInterval = ((...args) => {
+  const id = _realSetInterval(...args);
+  _activeIntervals.add(id);
+  return id;
+}) as typeof setInterval;
+
+globalThis.clearInterval = ((id) => {
+  _activeIntervals.delete(id);
+  return _realClearInterval(id);
+}) as typeof clearInterval;
+
+globalThis.setTimeout = ((...args) => {
+  const id = _realSetTimeout(...args);
+  _activeTimeouts.add(id);
+  return id;
+}) as typeof setTimeout;
+
+globalThis.clearTimeout = ((id) => {
+  _activeTimeouts.delete(id);
+  return _realClearTimeout(id);
+}) as typeof clearTimeout;
+// ─────────────────────────────────────────────────────────────────────
 
 const showToast = vi.fn();
 vi.mock("../components/Toast", () => ({
@@ -50,6 +85,19 @@ if (!window.matchMedia) {
 
 beforeEach(() => {
   showToast.mockClear();
+});
+
+afterEach(() => {
+  // Clear any leaked real timers to prevent worker process from hanging
+  _activeIntervals.forEach(id => _realClearInterval(id));
+  _activeIntervals.clear();
+  _activeTimeouts.forEach(id => _realClearTimeout(id));
+  _activeTimeouts.clear();
+
+  // Force garbage collection to prevent memory leaks in JSDOM environment
+  if (globalThis.gc) {
+    globalThis.gc();
+  }
 });
 
 window.scrollTo = window.scrollTo || (() => {});

@@ -28,6 +28,10 @@ public class Department {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    @Column(name = "dev_info_enabled", nullable = false)
+    @Builder.Default
+    private Boolean devInfoEnabled = false;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "company_id")
     private Company company;

@@ -11,6 +11,10 @@ const mocks = vi.hoisted(() => ({
   getTaskById: vi.fn(),
   getComments: vi.fn(),
   getTimeByTask: vi.fn(),
+  getEmployeeByUserId: vi.fn(),
+  getHistory: vi.fn(),
+  getByEmployee: vi.fn(),
+  getByTask: vi.fn(),
 }));
 
 vi.mock("../../utils/api", () => ({
@@ -26,6 +30,7 @@ vi.mock("../../utils/api", () => ({
     getAll: mocks.getAllTasks,
     getById: mocks.getTaskById,
     updateStatus: vi.fn().mockResolvedValue({}),
+    update: vi.fn().mockResolvedValue({}),
   },
   taskCommentsAPI: {
     getByTask: mocks.getComments,
@@ -37,10 +42,14 @@ vi.mock("../../utils/api", () => ({
     logTime: vi.fn().mockResolvedValue({}),
   },
   taskAuditAPI: {
-    getHistory: vi.fn().mockResolvedValue([]),
+    getHistory: mocks.getHistory,
   },
   assignmentsAPI: {
-    getByTask: vi.fn().mockResolvedValue([]),
+    getByEmployee: mocks.getByEmployee,
+    getByTask: mocks.getByTask,
+  },
+  employeesAPI: {
+    getByUserId: mocks.getEmployeeByUserId,
   },
 }));
 
@@ -66,6 +75,10 @@ describe("MainLayout and TaskDetailsModal behavior", () => {
     mocks.getTaskById.mockResolvedValue({ id: "t1", title: "Task" });
     mocks.getComments.mockResolvedValue([]);
     mocks.getTimeByTask.mockResolvedValue([]);
+    mocks.getEmployeeByUserId.mockResolvedValue({ id: "e1", department: "Engineering", position: "Developer" });
+    mocks.getHistory.mockResolvedValue([]);
+    mocks.getByEmployee.mockResolvedValue([]);
+    mocks.getByTask.mockResolvedValue([]);
   });
 
   it("MainLayout fetches notifications and chat unread counts", async () => {
@@ -92,4 +105,3 @@ describe("MainLayout and TaskDetailsModal behavior", () => {
     expect(mocks.getComments).toHaveBeenCalled();
   });
 });
-

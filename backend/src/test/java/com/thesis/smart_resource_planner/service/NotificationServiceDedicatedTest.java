@@ -129,6 +129,30 @@ class NotificationServiceDedicatedTest {
     }
 
     @Test
+    @DisplayName("createNotification returns dto even if broadcast fails")
+    void testCreateNotification_BroadcastFailure() {
+        NotificationCreateDTO createDTO = new NotificationCreateDTO();
+        createDTO.setUserId(userId);
+        createDTO.setType(NotificationType.TASK_ASSIGNED);
+        createDTO.setTitle("Test Notification");
+        createDTO.setMessage("This is a test notification");
+        createDTO.setSeverity(NotificationSeverity.INFO);
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(notificationRepository.saveAndFlush(any(Notification.class))).thenReturn(testNotification);
+        when(modelMapper.map(testNotification, NotificationDTO.class)).thenReturn(testNotificationDTO);
+        when(notificationRepository.countUnreadByUserId(userId)).thenReturn(1L);
+        doNothing()
+            .doThrow(new RuntimeException("ws down"))
+            .when(messagingTemplate).convertAndSendToUser(eq(userId.toString()), anyString(), any());
+
+        NotificationDTO result = notificationService.createNotification(createDTO);
+
+        assertNotNull(result);
+        verify(notificationRepository).saveAndFlush(any(Notification.class));
+    }
+
+    @Test
     @DisplayName("Should retrieve notifications for user")
     void testGetNotificationsByUser_Success() {
         List<Notification> notifications = List.of(testNotification);
@@ -239,5 +263,118 @@ class NotificationServiceDedicatedTest {
 
         notificationService.notifyTeamMembers(UUID.randomUUID(), "Team", "Updated", NotificationSeverity.INFO);
         verify(notificationRepository, times(2)).saveAndFlush(any(Notification.class));
+    }
+
+    @Test
+    @DisplayName("getNotificationsByUser uses userId query when user has no company")
+    void testGetNotificationsByUser_NoCompany() {
+        user.setCompany(null);
+        List<Notification> notifications = List.of(testNotification);
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(notificationRepository.findByUserIdOrderByCreatedAtDesc(userId)).thenReturn(notifications);
+        when(modelMapper.map(testNotification, NotificationDTO.class)).thenReturn(testNotificationDTO);
+
+        List<NotificationDTO> result = notificationService.getNotificationsByUser(userId);
+
+        assertEquals(1, result.size());
+        verify(notificationRepository, times(1)).findByUserIdOrderByCreatedAtDesc(userId);
+        verify(notificationRepository, never()).findByUserIdAndCompanyIdOrderByCreatedAtDesc(any(), any());
+    }
+
+    @Test
+    @DisplayName("getUnreadNotifications uses userId query when user has no company")
+    void testGetUnreadNotifications_NoCompany() {
+        user.setCompany(null);
+        List<Notification> notifications = List.of(testNotification);
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(notificationRepository.findUnreadByUserId(userId)).thenReturn(notifications);
+        when(modelMapper.map(testNotification, NotificationDTO.class)).thenReturn(testNotificationDTO);
+
+        List<NotificationDTO> result = notificationService.getUnreadNotifications(userId);
+
+        assertEquals(1, result.size());
+        verify(notificationRepository, times(1)).findUnreadByUserId(userId);
+        verify(notificationRepository, never()).findUnreadByUserIdAndCompanyId(any(), any());
+    }
+
+    @Test
+    @DisplayName("getUnreadCount uses userId query when user has no company")
+    void testGetUnreadCount_NoCompany() {
+        user.setCompany(null);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(notificationRepository.countUnreadByUserId(userId)).thenReturn(3L);
+
+        Long count = notificationService.getUnreadCount(userId);
+
+        assertEquals(3L, count);
+        verify(notificationRepository, times(1)).countUnreadByUserId(userId);
+        verify(notificationRepository, never()).countUnreadByUserIdAndCompanyId(any(), any());
+    }
+
+    @Test
+    @DisplayName("getUnreadCount uses company scoped query when company exists")
+    void testGetUnreadCount_WithCompany() {
+        UUID companyId = user.getCompany().getId();
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(notificationRepository.countUnreadByUserIdAndCompanyId(userId, companyId)).thenReturn(4L);
+
+        Long count = notificationService.getUnreadCount(userId);
+
+        assertEquals(4L, count);
+        verify(notificationRepository).countUnreadByUserIdAndCompanyId(userId, companyId);
+        verify(notificationRepository, never()).countUnreadByUserId(userId);
+    }
+
+    @Test
+    @DisplayName("markAsRead does not save when notification already read")
+    void testMarkAsRead_AlreadyRead() {
+        testNotification.setIsRead(true);
+        when(notificationRepository.findById(notificationId)).thenReturn(Optional.of(testNotification));
+        when(modelMapper.map(testNotification, NotificationDTO.class)).thenReturn(testNotificationDTO);
+
+        NotificationDTO dto = notificationService.markAsRead(notificationId);
+
+        assertNotNull(dto);
+        verify(notificationRepository, never()).saveAndFlush(any(Notification.class));
+    }
+
+    @Test
+    @DisplayName("deleteNotification throws when notification is missing")
+    void testDeleteNotification_NotFound() {
+        when(notificationRepository.existsById(notificationId)).thenReturn(false);
+        assertThrows(ResourceNotFoundException.class, () -> notificationService.deleteNotification(notificationId));
+        verify(notificationRepository, never()).deleteById(any(UUID.class));
+    }
+
+    @Test
+    @DisplayName("createNotification defaults severity to INFO when missing")
+    void testCreateNotification_DefaultSeverity() {
+        NotificationCreateDTO createDTO = new NotificationCreateDTO();
+        createDTO.setUserId(userId);
+        createDTO.setType(NotificationType.TASK_ASSIGNED);
+        createDTO.setTitle("Title");
+        createDTO.setMessage("Body");
+        createDTO.setSeverity(null);
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(notificationRepository.saveAndFlush(any(Notification.class))).thenReturn(testNotification);
+        when(modelMapper.map(testNotification, NotificationDTO.class)).thenReturn(testNotificationDTO);
+        when(notificationRepository.countUnreadByUserId(userId)).thenReturn(2L);
+
+        NotificationDTO dto = notificationService.createNotification(createDTO);
+
+        assertNotNull(dto);
+        verify(notificationRepository).saveAndFlush(any(Notification.class));
+    }
+
+    @Test
+    @DisplayName("markAllAsRead with no unread notifications still broadcasts zero count")
+    void testMarkAllAsRead_EmptyList() {
+        when(notificationRepository.findUnreadByUserId(userId)).thenReturn(List.of());
+        notificationService.markAllAsRead(userId);
+        verify(notificationRepository).saveAllAndFlush(anyList());
+        verify(messagingTemplate).convertAndSendToUser(eq(userId.toString()), eq("/queue/notification-update"), any());
     }
 }

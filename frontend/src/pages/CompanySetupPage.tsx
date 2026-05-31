@@ -1,13 +1,16 @@
 /**
- * @file CompanySetupPage.jsx
+ * @file CompanySetupPage.tsx
  * @description Page component for joining an existing company or creating a new one.
+ *              Also handles the re-join flow for blocked/dismissed users who already
+ *              have an account but lost their company association.
+ *              Styled with the polished charcoal grey theme.
  */
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, Key, ArrowLeft, Sparkles, User, Mail, Lock } from 'lucide-react';
-import { authAPI } from '../utils/api';
+import { Building2, Key, ArrowLeft, Sparkles, User, Mail, Lock, AlertTriangle, LogOut } from 'lucide-react';
+import { authAPI, usersAPI } from '../utils/api';
+import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../components/Toast';
-
 
 /**
  * CompanySetupPage Component
@@ -19,10 +22,37 @@ import { useToast } from '../components/Toast';
 const CompanySetupPage = () => {
   const navigate = useNavigate();
   const { showToast } = useToast();
+  const { user, updateUser, logout } = useAuth();
   const [mode, setMode] = useState<'create' | 'join' | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
-  
+  const [rejoinCode, setRejoinCode] = useState<string>('');
+
+  // Detect if the visitor is a logged-in user without a company (blocked/dismissed)
+  const isLoggedInWithoutCompany = !!user && !user.companyId && user.role !== 'SUPER_ADMIN';
+
+  /**
+   * Handles re-joining a company for an existing logged-in user
+   * who was blocked or dismissed.
+   */
+  const handleRejoinCompany = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    setError('');
+    setLoading(true);
+    try {
+      const updatedUser = await usersAPI.joinCompany(user.id, rejoinCode.trim());
+      // Merge the new company info into the auth context so guards pass
+      updateUser({ companyId: updatedUser.companyId, companyName: updatedUser.companyName, role: updatedUser.role });
+      showToast('Successfully joined company! Awaiting admin approval.', 'success');
+      navigate('/dashboard');
+    } catch (err: any) {
+      setError(err.message || 'Failed to join company. Check the code and try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const [createData, setCreateData] = useState({
     companyName: '',
     adminUsername: '',
@@ -123,61 +153,135 @@ const CompanySetupPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#020617] text-slate-300 font-sans flex items-center justify-center p-4 relative overflow-hidden selection:bg-indigo-500/30">
+    <div className="min-h-screen bg-gradient-to-b from-[#18181b] via-[#111113] to-[#0a0a0b] text-[#d1d1d6] font-sans flex items-center justify-center p-4 relative overflow-hidden selection:bg-blue-500/20">
       
-      {/* --- CLEAN ATMOSPHERIC BACKGROUND --- */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-900/20 blur-[150px] rounded-full"></div>
-        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-purple-900/10 blur-[150px] rounded-full"></div>
-      </div>
+      {/* Clean Atmospheric Background Glow */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-indigo-500/5 blur-[120px] rounded-full pointer-events-none"></div>
 
       <button
         onClick={() => mode ? setMode(null) : navigate('/')}
-        className="absolute top-6 left-6 flex items-center gap-2 text-slate-500 hover:text-white px-4 py-2 rounded-lg transition-all hover:bg-white/5 z-50"
+        className="absolute top-6 left-6 flex items-center gap-2 text-[#8e8e93] hover:text-white px-4 py-2 rounded transition-all hover:bg-white/5 border border-white/[0.06] z-50 font-mono text-xs"
       >
-        <ArrowLeft className="w-5 h-5" />
-        <span className="hidden sm:inline font-medium text-sm">Back</span>
+        <ArrowLeft className="w-4 h-4" />
+        <span>Back</span>
       </button>
 
-      <div className="bg-[#0B0F19]/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-8 w-full max-w-md relative z-10 animate-slideUp">
-        
-        {/* Mode Selection */}
-        {!mode && (
+      <div className="bg-[#1f1f23]/90 backdrop-blur-md border border-white/[0.06] rounded-lg shadow-2xl p-8 w-full max-w-md relative z-10 animate-slideUp">
+        {/* Top glowing line */}
+        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-blue-500/30 to-transparent" />
+
+        {/* ── Re-join flow for blocked / dismissed users ── */}
+        {isLoggedInWithoutCompany && (
+          <div className="space-y-6">
+            <div className="text-center mb-6">
+              <div className="w-12 h-12 bg-amber-500/10 border border-amber-500/30 rounded mx-auto mb-6 flex items-center justify-center shadow-lg shadow-amber-500/10">
+                <AlertTriangle className="w-6 h-6 text-amber-500" />
+              </div>
+              <h1 className="text-xl font-bold text-white tracking-tight">Company Access Required</h1>
+              <p className="text-[#8e8e93] mt-2 text-xs">
+                You are no longer assigned to a company. Enter a company code to join one.
+              </p>
+            </div>
+
+            <div className="p-4 bg-amber-500/5 border border-amber-500/20 rounded">
+              <p className="text-amber-450 text-xs leading-relaxed">
+                <strong>Hi {user?.username},</strong> your previous company access has been revoked.
+                Contact a company admin for a new join code, or create your own company below.
+              </p>
+            </div>
+
+            {error && (
+              <div className="p-3 bg-red-500/10 border border-red-500/25 rounded text-red-400 text-xs flex items-center gap-2">
+                <div className="w-1.5 h-1.5 bg-red-500 rounded-full"></div>
+                {error}
+              </div>
+            )}
+
+            <form onSubmit={handleRejoinCompany} className="space-y-4">
+              <div>
+                <input
+                  type="text"
+                  required
+                  value={rejoinCode}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRejoinCode(e.target.value.toUpperCase())}
+                  className="w-full px-4 py-3 border border-white/[0.08] bg-[#141416] rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all text-center text-xl font-mono tracking-[0.2em] text-white placeholder-[#636366] uppercase"
+                  placeholder="CODE"
+                  maxLength={10}
+                />
+                <p className="text-[10px] text-[#636366] mt-2 text-center font-mono">Ask a company admin for this code</p>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading || !rejoinCode.trim()}
+                className="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 rounded font-bold text-xs transition shadow-[0_0_15px_rgba(59,130,246,0.25)] hover:shadow-[0_0_20px_rgba(59,130,246,0.35)] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? 'Joining...' : 'Join Company'}
+              </button>
+            </form>
+
+            <div className="flex items-center gap-4 pt-2">
+              <div className="flex-1 h-px bg-white/[0.05]"></div>
+              <span className="text-xs text-[#636366] font-mono">or</span>
+              <div className="flex-1 h-px bg-white/[0.05]"></div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => { logout(); navigate('/company-setup'); }}
+                className="flex-1 flex items-center justify-center gap-2 p-3 border border-white/[0.06] bg-[#141416] rounded hover:bg-white/5 transition-all text-xs text-[#8e8e93] hover:text-white"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                Sign Out
+              </button>
+              <button
+                onClick={() => { logout(); navigate('/company-setup'); }}
+                className="flex-1 flex items-center justify-center gap-2 p-3 border border-blue-500/20 bg-blue-500/5 rounded hover:bg-blue-500/10 transition-all text-xs text-blue-450 hover:text-blue-400"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                Create Company
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Standard mode selection (unauthenticated visitors) ── */}
+        {!isLoggedInWithoutCompany && !mode && (
           <div className="space-y-6">
             <div className="text-center mb-10">
-              <div className="w-14 h-14 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl mx-auto mb-6 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-                <Building2 className="w-7 h-7 text-white" />
+              <div className="w-12 h-12 bg-blue-600 rounded mx-auto mb-6 flex items-center justify-center shadow-[0_0_15px_rgba(59,130,246,0.3)]">
+                <Building2 className="w-6 h-6 text-white fill-white" />
               </div>
-              <h1 className="text-3xl font-bold text-white tracking-tight">Company Setup</h1>
-              <p className="text-slate-500 mt-2">Initialize your workspace</p>
+              <h1 className="text-xl font-bold text-white tracking-tight">Company Setup</h1>
+              <p className="text-[#8e8e93] mt-2 text-xs">Initialize your workspace</p>
             </div>
 
             <button
               onClick={() => setMode('create')}
-              className="w-full p-5 border border-white/10 bg-white/[0.02] rounded-xl hover:bg-white/[0.05] hover:border-indigo-500/50 transition-all group hover:-translate-y-1 duration-300"
+              className="w-full p-5 border border-white/[0.06] bg-[#141416]/50 rounded hover:bg-[#1c1c20] hover:border-blue-500/40 transition-all group duration-300"
             >
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-indigo-500/10 rounded-lg flex items-center justify-center group-hover:bg-indigo-500 group-hover:text-white transition-colors text-indigo-400">
-                  <Sparkles className="w-6 h-6" />
+                <div className="w-10 h-10 bg-blue-500/10 rounded flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors text-blue-450">
+                  <Sparkles className="w-5 h-5" />
                 </div>
-                <div className="text-left">
-                  <h3 className="font-bold text-lg text-white group-hover:text-indigo-400 transition-colors">Create Company</h3>
-                  <p className="text-sm text-slate-500">Register a new organization</p>
+                <div className="text-left font-sans">
+                  <h3 className="font-bold text-sm text-white group-hover:text-blue-400 transition-colors">Create Company</h3>
+                  <p className="text-xs text-[#8e8e93] mt-0.5">Register a new organization</p>
                 </div>
               </div>
             </button>
 
             <button
               onClick={() => setMode('join')}
-              className="w-full p-5 border border-white/10 bg-white/[0.02] rounded-xl hover:bg-white/[0.05] hover:border-purple-500/50 transition-all group hover:-translate-y-1 duration-300"
+              className="w-full p-5 border border-white/[0.06] bg-[#141416]/50 rounded hover:bg-[#1c1c20] hover:border-blue-500/40 transition-all group duration-300"
             >
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-purple-500/10 rounded-lg flex items-center justify-center group-hover:bg-purple-500 group-hover:text-white transition-colors text-purple-400">
-                  <Key className="w-6 h-6" />
+                <div className="w-10 h-10 bg-blue-500/10 rounded flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors text-blue-450">
+                  <Key className="w-5 h-5" />
                 </div>
-                <div className="text-left">
-                  <h3 className="font-bold text-lg text-white group-hover:text-purple-400 transition-colors">Join Company</h3>
-                  <p className="text-sm text-slate-500">Enter via invitation code</p>
+                <div className="text-left font-sans">
+                  <h3 className="font-bold text-sm text-white group-hover:text-blue-400 transition-colors">Join Company</h3>
+                  <p className="text-xs text-[#8e8e93] mt-0.5">Enter via invitation code</p>
                 </div>
               </div>
             </button>
@@ -188,18 +292,18 @@ const CompanySetupPage = () => {
         {mode === 'create' && (
           <div className="animate-slideUp">
             <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold text-white">Create Organization</h2>
-              <p className="text-slate-500 mt-1 text-sm">Set up your admin account</p>
+              <h2 className="text-lg font-bold text-white">Create Organization</h2>
+              <p className="text-[#8e8e93] mt-1 text-xs">Set up your admin account</p>
             </div>
 
             {error && (
-              <div className="mb-6 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm flex items-center gap-2">
+              <div className="mb-6 p-3 bg-red-500/10 border border-red-500/25 rounded text-red-400 text-xs flex items-center gap-2">
                 <div className="w-1.5 h-1.5 bg-red-500 rounded-full"></div>
                 {error}
               </div>
             )}
 
-            <form onSubmit={handleCreateCompany} className="space-y-5">
+            <form onSubmit={handleCreateCompany} className="space-y-4">
               <div className="space-y-4">
                 <InputGroup icon={Building2} type="text" placeholder="Company Name" value={createData.companyName} onChange={e => setCreateData({...createData, companyName: e.target.value})} />
                 <InputGroup icon={User} type="text" placeholder="Admin Username" value={createData.adminUsername} onChange={e => setCreateData({...createData, adminUsername: e.target.value})} />
@@ -211,7 +315,7 @@ const CompanySetupPage = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3.5 rounded-xl font-bold transition-all shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/40 disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+                className="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 rounded font-bold text-xs transition shadow-[0_0_15px_rgba(59,130,246,0.25)] hover:shadow-[0_0_20px_rgba(59,130,246,0.35)] disabled:opacity-50 disabled:cursor-not-allowed mt-2 animate-pulse-slow"
               >
                 {loading ? 'Processing...' : 'Create Company'}
               </button>
@@ -223,42 +327,42 @@ const CompanySetupPage = () => {
         {mode === 'join' && (
           <div className="animate-slideUp">
             <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold text-white">Join Organization</h2>
-              <p className="text-slate-500 mt-1 text-sm">Enter your invitation details</p>
+              <h2 className="text-lg font-bold text-white">Join Organization</h2>
+              <p className="text-[#8e8e93] mt-1 text-xs">Enter your invitation details</p>
             </div>
 
             {error && (
-              <div className="mb-6 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm flex items-center gap-2">
+              <div className="mb-6 p-3 bg-red-500/10 border border-red-500/25 rounded text-red-400 text-xs flex items-center gap-2">
                 <div className="w-1.5 h-1.5 bg-red-500 rounded-full"></div>
                 {error}
               </div>
             )}
 
-            <form onSubmit={handleJoinCompany} className="space-y-5">
+            <form onSubmit={handleJoinCompany} className="space-y-4">
               <div>
                 <input
                   type="text"
                   required
                   value={joinData.companyCode}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setJoinData({ ...joinData, companyCode: e.target.value.toUpperCase() })}
-                  className="w-full px-4 py-4 border border-purple-500/30 bg-[#020617] rounded-xl focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none transition-all text-center text-2xl font-mono tracking-[0.2em] text-white placeholder-slate-700 uppercase"
+                  className="w-full px-4 py-3 border border-white/[0.08] bg-[#141416] rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all text-center text-xl font-mono tracking-[0.2em] text-white placeholder-[#636366] uppercase"
                   placeholder="CODE"
                   maxLength={10}
                 />
-                <p className="text-xs text-slate-500 mt-2 text-center">Ask your admin for this code</p>
+                <p className="text-[10px] text-[#636366] mt-2 text-center font-mono">Ask your admin for this code</p>
               </div>
 
               <div className="space-y-4">
-                <InputGroup icon={User} type="text" placeholder="Username" value={joinData.username} onChange={e => setJoinData({...joinData, username: e.target.value})} color="purple" />
-                <InputGroup icon={Mail} type="email" placeholder="Email" value={joinData.email} onChange={e => setJoinData({...joinData, email: e.target.value})} color="purple" />
-                <InputGroup icon={Lock} type="password" placeholder="Password" value={joinData.password} onChange={e => setJoinData({...joinData, password: e.target.value})} color="purple" />
-                <InputGroup icon={Lock} type="password" placeholder="Confirm Password" value={joinData.confirmPassword} onChange={e => setJoinData({...joinData, confirmPassword: e.target.value})} color="purple" />
+                <InputGroup icon={User} type="text" placeholder="Username" value={joinData.username} onChange={e => setJoinData({...joinData, username: e.target.value})} />
+                <InputGroup icon={Mail} type="email" placeholder="Email" value={joinData.email} onChange={e => setJoinData({...joinData, email: e.target.value})} />
+                <InputGroup icon={Lock} type="password" placeholder="Password" value={joinData.password} onChange={e => setJoinData({...joinData, password: e.target.value})} />
+                <InputGroup icon={Lock} type="password" placeholder="Confirm Password" value={joinData.confirmPassword} onChange={e => setJoinData({...joinData, confirmPassword: e.target.value})} />
               </div>
 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-purple-600 hover:bg-purple-500 text-white py-3.5 rounded-xl font-bold transition-all shadow-lg shadow-purple-500/20 hover:shadow-purple-500/40 disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+                className="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 rounded font-bold text-xs transition shadow-[0_0_15px_rgba(59,130,246,0.25)] hover:shadow-[0_0_20px_rgba(59,130,246,0.35)] disabled:opacity-50 disabled:cursor-not-allowed mt-2 animate-pulse-slow"
               >
                 {loading ? 'Verifying...' : 'Join Company'}
               </button>
@@ -277,18 +381,17 @@ interface InputGroupProps {
   placeholder: string;
   value: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  color?: string;
 }
 
-const InputGroup: React.FC<InputGroupProps> = ({ icon: Icon, type, placeholder, value, onChange, color = 'indigo' }) => (
-  <div className="relative group">
-    <Icon className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-600 group-focus-within:text-${color}-400 transition-colors pointer-events-none`} />
+const InputGroup: React.FC<InputGroupProps> = ({ icon: Icon, type, placeholder, value, onChange }) => (
+  <div className="relative group font-mono">
+    <Icon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#636366] group-focus-within:text-blue-400 transition-colors pointer-events-none" />
     <input
       type={type}
       required
       value={value}
       onChange={onChange}
-      className={`w-full pl-12 pr-4 py-3.5 border border-white/10 bg-[#020617] rounded-xl focus:border-${color}-500 focus:ring-1 focus:ring-${color}-500 outline-none transition-all text-white placeholder-slate-600`}
+      className="w-full pl-11 pr-4 py-3 border border-white/[0.08] bg-[#141416] rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all text-white placeholder-[#636366] text-xs"
       placeholder={placeholder}
     />
   </div>

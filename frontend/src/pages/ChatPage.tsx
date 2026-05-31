@@ -5,6 +5,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Users, User, Check, CheckCheck, MessageSquare, RefreshCw } from 'lucide-react';
 import { chatAPI, employeesAPI, getProfileImageUrl } from '../utils/api';
+import { parseUTCDate } from '../utils/dateUtils';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useWebSocket, EVENT_TYPES } from '../contexts/WebSocketProvider';
@@ -214,7 +215,7 @@ const ChatPage = () => {
       }
       
       const sorted = data.sort((a, b) => 
-        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        parseUTCDate(a.createdAt).getTime() - parseUTCDate(b.createdAt).getTime()
       );
       
       setMessages(sorted);
@@ -384,8 +385,8 @@ const ChatPage = () => {
 
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-4 overflow-hidden">
         {/* Sidebar */}
-        <div className={`rounded-lg shadow p-4 lg:col-span-1 flex flex-col overflow-hidden animate-slideIn ${
-          darkMode ? 'bg-gray-800' : 'bg-white'
+        <div className={`rounded-lg shadow p-4 lg:col-span-1 flex flex-col overflow-hidden animate-slideIn border ${
+          darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
         }`}>
           <div className="flex gap-2 mb-4 flex-shrink-0">
             <button
@@ -428,10 +429,10 @@ const ChatPage = () => {
                     <button
                       key={contact.id}
                       onClick={() => handleUserSelect(contact)}
-                      className={`w-full text-left p-3 rounded-lg transition slide-up relative ${
+                      className={`w-full text-left p-3 rounded-lg transition slide-up border relative ${
                         selectedReceiver?.id === contact.id 
-                          ? (darkMode ? 'bg-indigo-700 text-white' : 'bg-indigo-50 text-indigo-900 border-2 border-indigo-600')
-                          : (darkMode ? 'bg-gray-700 text-gray-200 hover:bg-gray-600' : 'bg-gray-50 text-gray-900 hover:bg-gray-100')
+                          ? (darkMode ? 'bg-indigo-700 text-white border-indigo-600' : 'bg-indigo-50 text-indigo-900 border-indigo-600')
+                          : (darkMode ? 'bg-gray-700 text-gray-200 border-gray-600/50 hover:bg-gray-600' : 'bg-gray-50 text-gray-900 border-gray-200 hover:bg-gray-100 hover:border-gray-300')
                       }`}
                       style={{ animationDelay: `${idx * 50}ms` }}
                     >
@@ -491,10 +492,10 @@ const ChatPage = () => {
                 <button
                   key={t.teamId}
                   onClick={() => handleTeamSelect(t)}
-                  className={`w-full text-left p-3 rounded-lg transition slide-up ${
+                  className={`w-full text-left p-3 rounded-lg transition slide-up border ${
                     selectedTeam?.teamId === t.teamId 
-                      ? (darkMode ? 'bg-purple-700 text-white' : 'bg-purple-50 text-purple-900 border-2 border-purple-600')
-                      : (darkMode ? 'bg-gray-700 text-gray-200 hover:bg-gray-600' : 'bg-gray-50 text-gray-900 hover:bg-gray-100')
+                      ? (darkMode ? 'bg-purple-700 text-white border-purple-600' : 'bg-purple-50 text-purple-900 border-purple-600')
+                      : (darkMode ? 'bg-gray-700 text-gray-200 border-gray-600/50 hover:bg-gray-600' : 'bg-gray-50 text-gray-900 border-gray-200 hover:bg-gray-100 hover:border-gray-300')
                   }`}
                   style={{ animationDelay: `${idx * 50}ms` }}
                 >
@@ -530,8 +531,8 @@ const ChatPage = () => {
         </div>
 
         {/* Chat Area */}
-        <div className={`lg:col-span-3 rounded-lg shadow flex flex-col overflow-hidden transition-opacity duration-300 ${
-          darkMode ? 'bg-gray-800' : 'bg-white'
+        <div className={`lg:col-span-3 rounded-lg shadow flex flex-col overflow-hidden transition-opacity duration-300 border ${
+          darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
         } ${showChatArea ? 'opacity-100' : 'opacity-0'}`}>
           {currentRecipient ? (
             <>
@@ -656,7 +657,7 @@ const ChatPage = () => {
                             <p className="text-sm break-words whitespace-pre-wrap">{msg.message}</p>
                             <div className="flex items-center justify-end gap-1 mt-1">
                               <p className="text-xs opacity-75">
-                                {new Date(msg.createdAt).toLocaleTimeString([], {
+                                {parseUTCDate(msg.createdAt).toLocaleTimeString([], {
                                   hour: '2-digit', minute: '2-digit'
                                 })}
                               </p>

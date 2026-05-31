@@ -126,6 +126,8 @@ describe("EmployeeProfilePage coverage dedicated", () => {
     renderWithRoute();
     await waitFor(() => expect(screen.getByText("Jane Smith")).toBeInTheDocument());
     
+    // Wait for any trailing fetches/re-renders to settle
+    await new Promise((resolve) => setTimeout(resolve, 50));
     mocks.getById.mockClear();
 
     await act(async () => {

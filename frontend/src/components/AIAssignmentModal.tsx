@@ -12,7 +12,7 @@ import { X, Brain, TrendingUp, Award, AlertCircle, Loader } from 'lucide-react';
 import { aiAPI, assignmentsAPI } from '../utils/api';
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../components/Toast';
-import type { AIAssignmentModalProps, Task, Employee } from '../types';
+import type { AIAssignmentModalProps, Task, Employee, AISuggestion } from '../types';
 
 /**
  * Modal that fetches and displays AI-generated employee assignment suggestions.
@@ -27,7 +27,7 @@ import type { AIAssignmentModalProps, Task, Employee } from '../types';
  */
 const AIAssignmentModal: React.FC<AIAssignmentModalProps> = ({ task, isOpen, onClose, onAssign }) => {
   const [loading, setLoading] = useState<boolean>(false);
-  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [suggestions, setSuggestions] = useState<AISuggestion[]>([]);
   const [error, setError] = useState<string | null>(null);
   const { darkMode } = useTheme();
   const { showToast } = useToast();
@@ -57,8 +57,9 @@ const AIAssignmentModal: React.FC<AIAssignmentModalProps> = ({ task, isOpen, onC
       if (data.suggestions.length === 0) {
         setError('No suitable employees found for this task');
       }
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      setError(errMsg || 'Failed to fetch suggestions');
     } finally {
       setLoading(false);
     }
@@ -91,8 +92,9 @@ const AIAssignmentModal: React.FC<AIAssignmentModalProps> = ({ task, isOpen, onC
 
       onAssign?.();
       onClose();
-    } catch (err: any) {
-      showToast('Failed to assign task: ' + err.message, 'error');
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      showToast('Failed to assign task: ' + errMsg, 'error');
     }
   };
 
@@ -130,7 +132,7 @@ const AIAssignmentModal: React.FC<AIAssignmentModalProps> = ({ task, isOpen, onC
           <h3 className={`font-semibold mb-1 ${darkMode ? 'text-gray-100' : 'text-gray-900'}`}>Task: {task?.title}</h3>
           <div className={`flex gap-4 text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
             <span>Priority: <strong className={darkMode ? 'text-gray-200' : 'text-gray-900'}>{task?.priority}</strong></span>
-            {task?.estimatedHours && (
+            {Number(task?.estimatedHours || 0) > 0 && (
               <span>Estimated: <strong className={darkMode ? 'text-gray-200' : 'text-gray-900'}>{task.estimatedHours}h</strong></span>
             )}
             {task?.complexityScore && (

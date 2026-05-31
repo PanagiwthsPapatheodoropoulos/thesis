@@ -226,6 +226,31 @@ public class DepartmentService {
         }
 
         /**
+         * Toggles the dev_info_enabled status of a department.
+         *
+         * @param name    the name of the department
+         * @param enabled the new status of dev_info_enabled
+         * @param userId  UUID of the requesting user
+         * @return the updated {@link DepartmentDTO}
+         */
+        @Caching(evict = {
+                @CacheEvict(value = "departments", allEntries = true)
+        })
+        public DepartmentDTO toggleDevInfo(String name, boolean enabled, UUID userId) {
+                User user = userRepository.findById(userId)
+                                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+                Department department = departmentRepository
+                                .findByNameAndCompanyId(name, user.getCompany().getId())
+                                .orElseThrow(() -> new ResourceNotFoundException(
+                                                "Department not found in your company: " + name));
+
+                department.setDevInfoEnabled(enabled);
+                Department saved = departmentRepository.save(department);
+                return mapToDTOWithEmployees(saved, userId);
+        }
+
+        /**
          * Helper that maps a {@link Department} to a {@link DepartmentDTO}
          * and populates the employee list and count.
          *

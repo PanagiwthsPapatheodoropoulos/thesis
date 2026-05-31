@@ -16,5 +16,6 @@ public class DepartmentDTO {
     private String name;
     private Integer employeeCount;
     private String description;
+    private Boolean devInfoEnabled;
     private List<EmployeeDTO> employees;
 }

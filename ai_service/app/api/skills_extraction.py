@@ -172,7 +172,7 @@ class SkillSuggestionsResponse(BaseModel):
 
 # ENDPOINTS
 @router.post("/extract", response_model=SkillExtractionResponse)
-@limiter.limit("15/minute")
+@limiter.limit("120/minute")
 async def extract_skills_from_task(
     request: Request,
     extraction_request: SkillExtractionRequest,

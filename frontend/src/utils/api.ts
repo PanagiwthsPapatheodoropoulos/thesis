@@ -384,13 +384,28 @@ export const usersAPI = {
    * @param {string} id - User ID to remove from company.
    * @returns {Promise<void>}
    */
-  removeFromCompany: (id: string) =>
-    fetch(`${API_BASE}/users/${id}/remove-from-company`, {
+  removeFromCompany: (id: string, reason?: string) => {
+    const reasonQuery = reason ? `?reason=${encodeURIComponent(reason)}` : '';
+    return fetch(`${API_BASE}/users/${id}/remove-from-company${reasonQuery}`, {
       method: "PATCH",
       headers: getAuthHeaders(),
     }).then((response) => {
       if (!response.ok) throw new Error("Failed to remove user from company");
-    }),
+    });
+  },
+
+  /**
+   * Joins a company for an existing user.
+   * @param {string} id - User ID.
+   * @param {string} companyCode - The company join code.
+   * @returns {Promise<any>}
+   */
+  joinCompany: (id: string, companyCode: string) =>
+    fetch(`${API_BASE}/users/${id}/join-company`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ companyCode }),
+    }).then(handleResponse),
 };
 
 // Tasks
@@ -903,6 +918,15 @@ export const departmentsAPI = {
     }).then((response) => {
       if (!response.ok) throw new Error("Failed to delete department");
     }),
+
+  /**
+   * Toggles developer/git info access for a department.
+   */
+  toggleDevInfo: (name: string, enabled: boolean) =>
+    fetch(`${API_BASE}/departments/${encodeURIComponent(name)}/toggle-dev-info?enabled=${enabled}`, {
+      method: "PUT",
+      headers: getAuthHeaders(),
+    }).then(handleResponse),
 };
 
 // Teams
@@ -1324,6 +1348,14 @@ export const aiAPI = {
       method: "POST",
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
+    }).then(handleResponse),
+
+  /** Ranks tasks by AI priority signals. */
+  prioritizeBacklog: (tasks: Record<string, unknown>[]) =>
+    fetch(`${API_BASE}/ai/task-analysis/prioritize-backlog`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(tasks),
     }).then(handleResponse),
 
   /** Recommends missing skills for a team based on assigned tasks. */

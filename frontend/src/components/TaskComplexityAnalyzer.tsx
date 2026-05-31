@@ -148,7 +148,7 @@ const TaskComplexityAnalyzer: React.FC<TaskComplexityAnalyzerProps> = ({ title, 
                   analysis.complexity_score > 0.5 ? 'text-orange-500' :
                   'text-green-500'
                 }`}>
-                  {(analysis.complexity_score ?? 0).toFixed(0) || '0'}%
+                  {((analysis.complexity_score ?? 0) * 100).toFixed(0) || '0'}%
                 </span>
               </div>
             </div>

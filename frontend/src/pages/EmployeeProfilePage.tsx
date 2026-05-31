@@ -10,6 +10,7 @@ import { employeesAPI } from '../utils/api';
 import { useTheme } from '../contexts/ThemeContext';
 import SkillRadarChart from '../components/SkillRadarChart';
 import EmployeeProductivityChart from '../components/EmployeeProductivityChart';
+import { parseUTCDate } from '../utils/dateUtils';
 import type { EmployeeSkill, Task, TaskAssignment } from '../types';
 
 
@@ -167,7 +168,7 @@ const EmployeeProfilePage = () => {
               <div>
                 <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Hire Date</p>
                 <p className={`font-medium ${darkMode ? 'text-gray-200' : 'text-gray-900'}`}>
-                  {new Date(employee.hireDate).toLocaleDateString()}
+                  {parseUTCDate(employee.hireDate).toLocaleDateString()}
                 </p>
               </div>
             </div>

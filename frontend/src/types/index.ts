@@ -28,7 +28,8 @@ export type NotificationSeverity = 'INFO' | 'WARNING' | 'ERROR' | 'SUCCESS';
 export type NotificationType =
   | 'TASK_ASSIGNED' | 'TASK_REQUEST' | 'TASK_APPROVED' | 'TASK_REJECTED'
   | 'TASK_STATUS_CHANGED' | 'TASK_COMPLETED' | 'DEADLINE_REMINDER'
-  | 'TEAM_ASSIGNMENT' | 'TEAM_REMOVAL' | 'TEAM_UPDATE' | 'ROLE_PROMOTION';
+  | 'TEAM_ASSIGNMENT' | 'TEAM_REMOVAL' | 'TEAM_UPDATE' | 'ROLE_PROMOTION'
+  | 'JOIN_REQUEST' | 'JOIN_REJECTED';
 
 /** Employee workload status matching backend WorkloadStatus enum. */
 export type WorkloadStatus = 'UNDERLOADED' | 'OPTIMAL' | 'OVERLOADED';
@@ -135,6 +136,15 @@ export interface Task {
   feedbackQualityScore?: number;
   scopeChangeCount?: number;
   reassignmentCount?: number;
+
+  githubRepo?: string;
+  branches?: string;
+  activeBranch?: string;
+  customCommits?: string;
+  completedById?: string;
+  completedByName?: string;
+  pendingById?: string;
+  pendingByName?: string;
 }
 
 /** A required skill entry on a task. */
@@ -173,6 +183,7 @@ export interface TaskComment {
   taskId: string;
   userId: string;
   user?: User;
+  userName?: string;
   comment: string;
   createdAt?: string;
   updatedAt?: string;
@@ -184,6 +195,7 @@ export interface TaskAuditLog {
   taskId: string;
   userId?: string;
   user?: User;
+  userName?: string;
   action: string;
   fieldName?: string;
   oldValue?: string;
@@ -197,6 +209,7 @@ export interface TaskTimeEntry {
   id: string;
   taskId: string;
   employeeId: string;
+  employeeName?: string;
   hoursSpent: number;
   workDate: string;
   description?: string;
@@ -315,6 +328,14 @@ export interface AISuggestion {
   reasoning: string;
   skills_match?: string[];
   workload_status?: string;
+  // camelCase aliases used by frontend after optional transform
+  employeeId?: string;
+  employeeName?: string;
+  fitScore?: number;
+  confidenceScore?: number;
+  availableHours?: number;
+  position?: string;
+  workloadPercentage?: number;
 }
 
 /** AI assignment response. */
@@ -492,9 +513,10 @@ export interface AIAssignmentModalProps {
 export interface TaskDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  task: Task | null;
+  task: Task;
   darkMode?: boolean;
   onTaskUpdate?: (updatedTask: Task) => void;
+  onCloneTask?: (task: Task) => void;
 }
 
 /** Props for the SkillRadarChart component. */

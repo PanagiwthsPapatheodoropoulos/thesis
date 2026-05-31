@@ -457,8 +457,8 @@ const TeamsPage = () => {
         {teams.map((team) => (
           <div
             key={team.id}
-            className={`rounded-lg shadow hover:shadow-lg transition p-6 ${
-              darkMode ? 'bg-gray-800 text-gray-100' : 'bg-white text-gray-900'
+            className={`rounded-lg shadow hover:shadow-lg transition p-6 border ${
+              darkMode ? 'bg-gray-800 border-gray-700 text-gray-100' : 'bg-white border-gray-300 text-gray-900'
             }`}
           >
             <div className="flex items-center gap-4 mb-4">
@@ -483,8 +483,8 @@ const TeamsPage = () => {
             }`}>
               <button
                 onClick={() => handleViewDetails(team.id)}
-                className={`py-2.5 text-sm font-medium rounded-lg transition ${
-                  darkMode ? 'text-indigo-400 hover:bg-indigo-900/30' : 'text-indigo-600 hover:bg-indigo-50'
+                className={`py-2 px-4 text-sm font-medium rounded-md border transition ${
+                  darkMode ? 'text-indigo-400 border-indigo-900/50 hover:text-indigo-300 hover:bg-gray-700' : 'text-indigo-600 border-indigo-200 hover:text-indigo-700 hover:bg-indigo-50 hover:border-indigo-400'
                 }`}
               >
                 View Details
@@ -511,7 +511,7 @@ const TeamsPage = () => {
 
       {/* Empty State */}
       {teams.length === 0 && !loading && (
-        <div className={`text-center py-12 rounded-lg ${darkMode ? 'bg-gray-800 text-gray-400' : 'bg-gray-50 text-gray-500'}`}>
+        <div className={`text-center py-12 rounded-lg border ${darkMode ? 'bg-gray-800 border-gray-700 text-gray-400' : 'bg-gray-50 border-gray-200 text-gray-500'}`}>
           <Users className={`w-16 h-16 mx-auto mb-4 ${darkMode ? 'text-gray-600' : 'text-gray-300'}`} />
           <p>{canManageTeams ? 'No teams found' : 'You are not assigned to any teams yet'}</p>
         </div>

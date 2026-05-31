@@ -27,6 +27,7 @@ export const EVENT_TYPES = {
   TASK_STATUS_CHANGED: 'TASK_STATUS_CHANGED',
   TASK_APPROVED: 'TASK_APPROVED',
   TASK_REJECTED: 'TASK_REJECTED',
+  TASK_DELETED: 'TASK_DELETED',
   ASSIGNMENT_CREATED: 'ASSIGNMENT_CREATED',
   ASSIGNMENT_ACCEPTED: 'ASSIGNMENT_ACCEPTED',
   USER_PROMOTED: 'USER_PROMOTED',
@@ -253,6 +254,8 @@ export const WebSocketProvider = ({ children }: { children: ReactNode }) => {
                 broadcastEvent(EVENT_TYPES.TASK_APPROVED, data.task);
               } else if (data.action === 'task_rejected') {
                 broadcastEvent(EVENT_TYPES.TASK_REJECTED, data.task);
+              } else if (data.action === 'task_deleted') {
+                broadcastEvent(EVENT_TYPES.TASK_DELETED, data.taskId);
               }
             } catch (error) {
               console.error('Task update error:', error);
@@ -362,9 +365,11 @@ export const WebSocketProvider = ({ children }: { children: ReactNode }) => {
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
       }
-      if (stompClientRef.current?.connected) {
+      if (stompClientRef.current) {
         subscriptionsRef.current.forEach((sub) => {
-          sub.unsubscribe();
+          try {
+            sub.unsubscribe();
+          } catch (e) {}
         });
         subscriptionsRef.current.clear();
         stompClientRef.current.deactivate();
@@ -376,10 +381,15 @@ export const WebSocketProvider = ({ children }: { children: ReactNode }) => {
     if (!authReady) return;
 
     if (!user || !token) {
-      if (stompClientRef.current?.connected) {
-        subscriptionsRef.current.forEach(sub => sub.unsubscribe());
+      if (stompClientRef.current) {
+        subscriptionsRef.current.forEach(sub => {
+          try {
+            sub.unsubscribe();
+          } catch (e) {}
+        });
         subscriptionsRef.current.clear();
         stompClientRef.current.deactivate();
+        stompClientRef.current = null;
         updateConnectionState(false, false);
       }
       return;

@@ -45,6 +45,8 @@ describe("utils/api bulk coverage", () => {
     await api.usersAPI.getAll();
     await api.usersAPI.getById("1");
     await api.usersAPI.update("1", { email: "x@y.com" });
+    await api.usersAPI.removeFromCompany("1", "BLOCKED");
+    await api.usersAPI.joinCompany("1", "CODE123");
 
     // tasks
     await api.tasksAPI.getAll();
@@ -160,6 +162,7 @@ describe("utils/api bulk coverage", () => {
     await api.aiAPI.getTaskSkillsBatch(["1", "2"]);
     await api.aiAPI.getProductivityAnalytics(7, true);
     await api.aiAPI.bulkOptimize({ taskIds: ["1"] });
+    await api.aiAPI.prioritizeBacklog([{ title: "t" }]);
     await api.aiAPI.triggerRetraining(true);
     await api.aiAPI.getModelInfo();
     await api.aiAPI.extractSkillsFromText({ text: "x" });

@@ -266,8 +266,26 @@ public class UserController {
      */
     @PatchMapping("/{id}/remove-from-company")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<Void> removeFromCompany(@PathVariable UUID id) {
-        userService.removeUserFromCompany(id);
+    public ResponseEntity<Void> removeFromCompany(
+            @PathVariable UUID id,
+            @RequestParam(value = "reason", required = false) String reason) {
+        userService.removeUserFromCompany(id, reason);
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Joins a company using a company code for an existing user.
+     */
+    @PostMapping("/{id}/join-company")
+    @PreAuthorize("#id == authentication.principal.id")
+    public ResponseEntity<UserDTO> joinCompany(
+            @PathVariable UUID id,
+            @RequestBody Map<String, String> request) {
+        String companyCode = request.get("companyCode");
+        if (companyCode == null || companyCode.trim().isEmpty()) {
+            throw new BadRequestException("Company code is required");
+        }
+        UserDTO updatedUser = userService.joinCompany(id, companyCode);
+        return ResponseEntity.ok(updatedUser);
     }
 }

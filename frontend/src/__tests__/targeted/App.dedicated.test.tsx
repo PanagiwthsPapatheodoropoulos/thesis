@@ -75,7 +75,7 @@ describe("App dedicated route branches", () => {
   });
 
   it("renders user dashboard route for USER role inside layout", async () => {
-    authState.user = { id: "u1", role: "USER" };
+    authState.user = { id: "u1", role: "USER", companyId: "c1" };
     window.history.pushState({}, "", "/dashboard");
     render(<App />);
     await waitFor(() => expect(screen.getByText("UserDashboardPage")).toBeInTheDocument());
@@ -91,7 +91,7 @@ describe("App dedicated route branches", () => {
   });
 
   it("redirects disallowed ai insights access to dashboard", async () => {
-    authState.user = { id: "u1", role: "EMPLOYEE" };
+    authState.user = { id: "u1", role: "EMPLOYEE", companyId: "c1" };
     window.history.pushState({}, "", "/ai-insights");
     render(<App />);
     await waitFor(() => expect(screen.getByText("DashboardPage")).toBeInTheDocument());

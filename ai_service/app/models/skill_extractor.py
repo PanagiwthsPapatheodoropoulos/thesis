@@ -104,7 +104,9 @@ class SkillExtractor:
                     'Python', 'Java', 'JavaScript', 'TypeScript', 'C++', 'C#',
                     'Go', 'Rust', 'Kotlin', 'Swift', 'PHP', 'Ruby',
                     'Scala', 'Clojure', 'Haskell', 'Lua', 'Perl', 'VB.NET',
-                    'MATLAB'
+                    'MATLAB', 'Dart', 'Elixir', 'F#', 'Groovy', 'Julia',
+                    'Assembly', 'Objective-C', 'COBOL', 'Fortran', 'Shell Scripting',
+                    'PowerShell', 'SQL', 'PL/SQL', 'ABAP', 'Solidity'
                 ],
                 'fuzzy': ['coding', 'programming', 'development', 'scripting'],
                 # Single-letter skills need special handling
@@ -142,18 +144,78 @@ class SkillExtractor:
             SkillCategory.SOFT_SKILLS: {
                 'exact': ['Communication', 'Leadership', 'Problem Solving', 'Critical Thinking',
                          'Time Management', 'Teamwork', 'Collaboration', 'Adaptability',
-                         'Creativity', 'Project Management', 'Negotiation'],
+                         'Creativity', 'Project Management', 'Negotiation',
+                         'Presentation Skills', 'Public Speaking', 'Emotional Intelligence',
+                         'Decision Making', 'Strategic Thinking', 'Mentoring',
+                         'Conflict Resolution', 'Active Listening', 'Empathy',
+                         'Cultural Awareness', 'Stress Management', 'Work-Life Balance',
+                         'Customer Service'],
                 'fuzzy': ['team', 'manage', 'lead', 'communicate', 'coordinate', 'organize']
             },
             SkillCategory.MANAGEMENT: {
                 'exact': ['Agile', 'Scrum', 'Kanban', 'Jira', 'Confluence', 'Risk Management',
-                         'Budget Management', 'Stakeholder Management', 'Strategic Planning'],
+                         'Budget Management', 'Stakeholder Management', 'Strategic Planning',
+                         'SAFe', 'Lean', 'Six Sigma', 'Prince2', 'PMI/PMP', 'OKR',
+                         'KPI Management', 'Change Management', 'Vendor Management',
+                         'Portfolio Management', 'Resource Planning', 'Capacity Planning',
+                         'Roadmap Planning'],
                 'fuzzy': ['management', 'planning', 'coordination', 'oversight', 'schedule']
             },
             SkillCategory.SECURITY: {
                 'exact': ['Cybersecurity', 'Encryption', 'OAuth', 'JWT', 'SSL/TLS',
                          'Penetration Testing', 'Network Security', 'OWASP', 'Firewalls'],
                 'fuzzy': ['security', 'secure', 'vulnerability', 'authentication', 'authorization']
+            },
+            SkillCategory.FINANCE: {
+                'exact': ['Financial Modeling', 'Excel', 'SAP', 'QuickBooks', 'Bloomberg',
+                         'Tableau', 'Power BI', 'Financial Analysis', 'Risk Assessment',
+                         'Budgeting', 'Forecasting', 'Compliance', 'GAAP', 'IFRS', 'Audit',
+                         'Tax Planning', 'Treasury Management', 'Accounts Payable',
+                         'Accounts Receivable', 'General Ledger', 'Cost Accounting',
+                         'Financial Reporting', 'Mergers and Acquisitions', 'Venture Capital',
+                         'Private Equity', 'Portfolio Management', 'Derivatives',
+                         'Fixed Income', 'Equity Research', 'Credit Analysis'],
+                'fuzzy': ['finance', 'financial', 'accounting', 'budget', 'audit', 'tax',
+                         'revenue', 'expense', 'profit', 'investment', 'banking']
+            },
+            SkillCategory.MARKETING: {
+                'exact': ['SEO', 'SEM', 'Google Analytics', 'Google Ads', 'Facebook Ads',
+                         'Content Marketing', 'Email Marketing', 'HubSpot', 'Mailchimp',
+                         'Social Media Marketing', 'Brand Strategy', 'Market Research',
+                         'A/B Testing', 'Conversion Optimization', 'Copywriting',
+                         'Adobe Creative Suite', 'Photoshop', 'Illustrator', 'InDesign',
+                         'Canva', 'Video Marketing', 'Influencer Marketing',
+                         'Public Relations', 'CRM', 'Salesforce', 'Campaign Management',
+                         'Lead Generation', 'Customer Segmentation', 'Marketing Automation',
+                         'Growth Hacking'],
+                'fuzzy': ['marketing', 'advertising', 'branding', 'campaign', 'promotion',
+                         'outreach', 'content', 'social media', 'engagement']
+            },
+            SkillCategory.HR: {
+                'exact': ['Recruitment', 'Talent Acquisition', 'Onboarding',
+                         'Performance Management', 'Employee Relations',
+                         'Compensation and Benefits', 'HRIS', 'Workday', 'BambooHR', 'ADP',
+                         'Payroll', 'Labor Law', 'Diversity and Inclusion',
+                         'Training and Development', 'Succession Planning',
+                         'Organizational Development', 'Employee Engagement',
+                         'Conflict Resolution', 'Change Management', 'Workforce Planning',
+                         'Benefits Administration', 'Job Analysis', 'Competency Mapping',
+                         'Exit Interviews', 'Employer Branding'],
+                'fuzzy': ['hr', 'human resources', 'hiring', 'recruiting', 'payroll',
+                         'benefits', 'workforce', 'personnel', 'staffing', 'retention']
+            },
+            SkillCategory.DESIGN: {
+                'exact': ['Figma', 'Sketch', 'Adobe XD', 'InVision', 'Zeplin',
+                         'UI Design', 'UX Design', 'User Research', 'Wireframing',
+                         'Prototyping', 'Design Systems', 'Typography', 'Color Theory',
+                         'Interaction Design', 'Information Architecture', 'Usability Testing',
+                         'Accessibility', 'WCAG', 'Motion Design', 'After Effects',
+                         '3D Modeling', 'Blender', 'AutoCAD', 'SolidWorks',
+                         'Product Design', 'Industrial Design', 'Graphic Design',
+                         'Visual Design', 'Design Thinking', 'Service Design'],
+                'fuzzy': ['design', 'creative', 'visual', 'prototype', 'wireframe',
+                         'layout', 'aesthetic', 'user experience', 'user interface',
+                         'illustration']
             }
         }
 

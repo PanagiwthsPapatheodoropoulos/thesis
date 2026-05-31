@@ -11,6 +11,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import LegalDocumentContent from '../components/LegalDocumentContent';
 import { LEGAL_DOC_ORDER, LEGAL_DOCUMENTS, type LegalDocumentType } from '../utils/legalContent';
 import { useToast } from '../components/Toast';
+import { parseUTCDate } from '../utils/dateUtils';
 
 
 /**
@@ -835,7 +836,7 @@ const SettingsPage = () => {
                                 {entry.email}
                               </span>
                               <span className={`text-xs ml-2 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                                {entry.createdAt ? new Date(entry.createdAt).toLocaleDateString() : ''}
+                                {entry.createdAt ? parseUTCDate(entry.createdAt).toLocaleDateString() : ''}
                               </span>
                             </div>
                             <button

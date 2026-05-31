@@ -145,6 +145,12 @@ public class NotificationService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
+        if (user.getCompany() == null) {
+            return notificationRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
+                .map(notification -> modelMapper.map(notification, NotificationDTO.class))
+                .toList();
+        }
+
         return notificationRepository.findByUserIdAndCompanyIdOrderByCreatedAtDesc(
                 userId, user.getCompany().getId()).stream()
                 .map(notification -> modelMapper.map(notification, NotificationDTO.class))
@@ -163,6 +169,12 @@ public class NotificationService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
+        if (user.getCompany() == null) {
+            return notificationRepository.findUnreadByUserId(userId).stream()
+                .map(notification -> modelMapper.map(notification, NotificationDTO.class))
+                .toList();
+        }
+
         return notificationRepository.findUnreadByUserIdAndCompanyId(
                 userId, user.getCompany().getId()).stream()
                 .map(notification -> modelMapper.map(notification, NotificationDTO.class))
@@ -180,6 +192,10 @@ public class NotificationService {
     public Long getUnreadCount(UUID userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        if (user.getCompany() == null) {
+            return notificationRepository.countUnreadByUserId(userId);
+        }
 
         return notificationRepository.countUnreadByUserIdAndCompanyId(
                 userId, user.getCompany().getId());

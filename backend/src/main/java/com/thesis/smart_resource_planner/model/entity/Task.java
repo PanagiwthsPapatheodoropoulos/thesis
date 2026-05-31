@@ -151,6 +151,26 @@ public class Task {
     @Column(name = "assigned_employee_id")
     private UUID assignedEmployeeId;
 
+    @Column(name = "github_repo")
+    private String githubRepo;
+
+    @Column(name = "branches", columnDefinition = "TEXT")
+    private String branches;
+
+    @Column(name = "active_branch", length = 100)
+    private String activeBranch;
+
+    @Column(name = "custom_commits", columnDefinition = "TEXT")
+    private String customCommits;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "completed_by")
+    private User completedBy;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "pending_by")
+    private User pendingBy;
+
     /**
      * Sets {@code createdAt} and {@code updatedAt} timestamps on first persist and
      * ensures boolean flags have defaults.

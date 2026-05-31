@@ -71,14 +71,14 @@ public class RateLimitInterceptor implements HandlerInterceptor {
 
     private BucketConfiguration resolveBucketConfig(String key) {
         if (key.startsWith("rate_limit:user:")) {
-            // Authenticated users: 100 requests per minute
+            // Authenticated users: 300 requests per minute
             return BucketConfiguration.builder()
-                    .addLimit(Bandwidth.simple(100, Duration.ofMinutes(1)))
+                    .addLimit(Bandwidth.simple(300, Duration.ofMinutes(1)))
                     .build();
         } else {
-            // Unauthenticated: 20 requests per minute
+            // Unauthenticated: 60 requests per minute
             return BucketConfiguration.builder()
-                    .addLimit(Bandwidth.simple(20, Duration.ofMinutes(1)))
+                    .addLimit(Bandwidth.simple(60, Duration.ofMinutes(1)))
                     .build();
         }
     }

@@ -5,9 +5,11 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Clock, UserCircle, CheckCircle, RefreshCw, LogOut } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { employeesAPI, notificationsAPI } from '../utils/api';
+import { employeesAPI, notificationsAPI, usersAPI } from '../utils/api';
+import { formatDate } from '../utils/dateUtils';
 import { useWebSocket, EVENT_TYPES } from '../contexts/WebSocketProvider';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '../components/Toast';
 import type { Task, TaskAssignment, Employee } from '../types';
 
 /**
@@ -27,6 +29,10 @@ const UserDashboardPage = () => {
   const [checkingProfile, setCheckingProfile] = useState<boolean>(true);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showPromotionModal, setShowPromotionModal] = useState<boolean>(false);
+  const [showRejectionModal, setShowRejectionModal] = useState<boolean>(false);
+  const [joinCode, setJoinCode] = useState<string>('');
+  const [joining, setJoining] = useState<boolean>(false);
+  const { showToast } = useToast();
   
   const lastCheckRef = useRef(0);
   const mountedRef = useRef(true);
@@ -112,6 +118,12 @@ const UserDashboardPage = () => {
     // Check if it's a promotion notification
     if (notification.type === 'ROLE_PROMOTION') {
       handleUserPromotion(notification);
+    } else if (notification.type === 'JOIN_REJECTED') {
+      setShowRejectionModal(true);
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
     }
     
     setNotifications(prev => [notification, ...prev.slice(0, 4)]);
@@ -155,7 +167,7 @@ const UserDashboardPage = () => {
     };
   }, [ready, subscribe, handleUserPromotion, handleNewNotification]);
 
-  //POLLING FALLBACK - Check every 3 seconds if no profile yet
+  //POLLING FALLBACK - Check every 30 seconds if no profile yet
   useEffect(() => {
     if (!user?.id || hasEmployeeProfile || promotionDetectedRef.current) return;
         
@@ -167,7 +179,7 @@ const UserDashboardPage = () => {
       }
       
       checkProfile(true); // Force check
-    }, 3000); // Check every 3 seconds
+    }, 30000); // Check every 30 seconds
     
     return () => {
       if (pollingIntervalRef.current) {
@@ -185,6 +197,13 @@ const UserDashboardPage = () => {
       .then(data => {
         if (mountedRef.current) {
           setNotifications(data.slice(0, 5));
+          if (data.some((n: any) => n.type === 'JOIN_REJECTED' && !n.read)) {
+            setShowRejectionModal(true);
+            if (pollingIntervalRef.current) {
+              clearInterval(pollingIntervalRef.current);
+              pollingIntervalRef.current = null;
+            }
+          }
         }
       })
       .catch(console.error);
@@ -198,6 +217,24 @@ const UserDashboardPage = () => {
   const handleLogoutAndRelogin = () => {
     logout();
     navigate('/login');
+  };
+
+  const handleRetryJoin = async () => {
+    if (!joinCode.trim() || !user?.id) return;
+    setJoining(true);
+    try {
+      await usersAPI.joinCompany(user.id, joinCode.trim().toUpperCase());
+      showToast('Successfully submitted join request!', 'success');
+      setShowRejectionModal(false);
+      setNotifications(prev => prev.filter(n => n.type !== 'JOIN_REJECTED'));
+      if (!pollingIntervalRef.current) {
+        checkProfile(true);
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Failed to join company. Check the code.', 'error');
+    } finally {
+      setJoining(false);
+    }
   };
 
   if (checkingProfile && !hasEmployeeProfile) {
@@ -242,7 +279,7 @@ const UserDashboardPage = () => {
       </div>
 
       {/* Waiting Status */}
-      {!hasEmployeeProfile && !showPromotionModal && (
+      {!hasEmployeeProfile && !showPromotionModal && !showRejectionModal && (
         <div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-6">
           <div className="flex items-start gap-4">
             <Clock className="w-12 h-12 text-yellow-600 flex-shrink-0 animate-pulse" />
@@ -292,7 +329,7 @@ const UserDashboardPage = () => {
                   <p className="font-medium text-gray-900">{notif.title}</p>
                   <p className="text-sm text-gray-600 mt-1">{notif.message}</p>
                   <p className="text-xs text-gray-400 mt-2">
-                    {new Date(notif.createdAt).toLocaleString()}
+                    {formatDate(notif.createdAt)}
                   </p>
                 </div>
               </div>
@@ -334,6 +371,53 @@ const UserDashboardPage = () => {
               <LogOut className="w-5 h-5" />
               Proceed to Login
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* REJECTION MODAL */}
+      {showRejectionModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-2xl animate-in zoom-in duration-300">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <LogOut className="w-8 h-8 text-red-600" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h3>
+              <p className="text-gray-600">
+                Your request to join the company was declined or you were removed.
+              </p>
+            </div>
+
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Have a new company code?
+              </label>
+              <input
+                type="text"
+                value={joinCode}
+                onChange={(e) => setJoinCode(e.target.value)}
+                placeholder="Enter 10-character code"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 uppercase tracking-widest text-center"
+                maxLength={10}
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleLogoutAndRelogin}
+                className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-lg hover:bg-gray-200 transition font-semibold"
+              >
+                Logout
+              </button>
+              <button
+                onClick={handleRetryJoin}
+                disabled={joining || joinCode.length < 5}
+                className="flex-1 bg-indigo-600 text-white py-3 rounded-lg hover:bg-indigo-700 transition font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {joining ? <RefreshCw className="w-5 h-5 animate-spin" /> : 'Retry Join'}
+              </button>
+            </div>
           </div>
         </div>
       )}

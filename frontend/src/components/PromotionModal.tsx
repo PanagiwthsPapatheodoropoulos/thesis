@@ -35,7 +35,7 @@ const PromotionModal: React.FC<PromotionModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
-      <div className={`rounded-2xl p-8 w-full max-w-md shadow-2xl animate-in zoom-in duration-300 ${
+      <div role="dialog" aria-modal="true" className={`rounded-2xl p-8 w-full max-w-md shadow-2xl animate-in zoom-in duration-300 ${
         darkMode ? 'bg-gray-800 text-gray-100 border border-gray-700' : 'bg-white text-gray-900'
       }`}>
         <div className="text-center mb-8">

@@ -121,14 +121,14 @@ class TaskServiceLegacyDedicatedTest {
     @Test
     @DisplayName("deleteTask: throws when task missing")
     void deleteTask_notFound() {
-        when(taskRepository.existsById(taskId)).thenReturn(false);
+        when(taskRepository.findById(taskId)).thenReturn(Optional.empty());
         assertThrows(ResourceNotFoundException.class, () -> taskService.deleteTask(taskId));
     }
 
     @Test
     @DisplayName("deleteTask: deletes when exists")
     void deleteTask_success() {
-        when(taskRepository.existsById(taskId)).thenReturn(true);
+        when(taskRepository.findById(taskId)).thenReturn(Optional.of(testTask));
         taskService.deleteTask(taskId);
         verify(taskRepository).deleteById(taskId);
     }

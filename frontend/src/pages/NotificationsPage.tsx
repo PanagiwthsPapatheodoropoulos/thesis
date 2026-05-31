@@ -6,18 +6,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Bell, CheckCircle, AlertTriangle, Info, XCircle, RefreshCw } from 'lucide-react';
 import { notificationsAPI } from '../utils/api';
+import { formatDate } from '../utils/dateUtils';
 import { useAuth } from '../contexts/AuthContext';
 import { useWebSocket, EVENT_TYPES } from '../contexts/WebSocketProvider';
 import { useTheme } from '../contexts/ThemeContext';
-import type { Notification } from '../types';
-
 /**
  * NotificationsPage Component
  * 
  * Subscribes to real-time notification events via WebSockets.
  * Allows users to filter, view, and mark notifications as read.
  * 
- * @returns {React.ReactElement} The notifications UI.
+ * @returns {React.ReactElement} The notsifications UI.
  */
 const NotificationsPage = () => {
   const { user } = useAuth();
@@ -309,7 +308,7 @@ const NotificationsPage = () => {
                       <p className={`text-xs ${
                         darkMode ? 'text-gray-500' : 'text-gray-600'
                       }`}>
-                        {new Date(notification.createdAt).toLocaleString()}
+                        {formatDate(notification.createdAt)}
                       </p>
                     </div>
                     {!notification.isRead && (
