@@ -56,16 +56,14 @@ describe("DashboardPage coverage dedicated", () => {
 
   it("renders admin dashboard with KPI stats", async () => {
     render(<DashboardPage />);
-    await waitFor(() => expect(mocks.getAll).toHaveBeenCalled());
-    expect(screen.getByText("Dashboard")).toBeInTheDocument();
+    await screen.findByText("Dashboard");
     expect(screen.getByText("3")).toBeInTheDocument(); // totalTasks (excl requests)
     expect(screen.getByText("Pending Requests")).toBeInTheDocument();
   });
 
   it("shows employee count for admin", async () => {
     render(<DashboardPage />);
-    await waitFor(() => expect(mocks.getAllEmployees).toHaveBeenCalled());
-    expect(screen.getByText("Employees")).toBeInTheDocument();
+    await screen.findByText("Employees");
   });
 
   it("hides employee card for EMPLOYEE role", async () => {
@@ -73,9 +71,8 @@ describe("DashboardPage coverage dedicated", () => {
     mocks.getByUserId.mockResolvedValue({ id: "e1" });
     mocks.usersGetById.mockResolvedValue({ id: "u2", teamId: "team1" });
     render(<DashboardPage />);
-    await waitFor(() => expect(mocks.getAll).toHaveBeenCalled());
+    await screen.findByText(/your team's tasks/i);
     expect(screen.queryByText("Employees")).toBeNull();
-    expect(screen.getByText(/your team's tasks/i)).toBeInTheDocument();
   });
 
   it("handles task API failure gracefully showing zero stats", async () => {
@@ -98,21 +95,19 @@ describe("DashboardPage coverage dedicated", () => {
 
   it("refresh button re-fetches data", async () => {
     render(<DashboardPage />);
-    await waitFor(() => expect(mocks.getAll).toHaveBeenCalled());
+    await screen.findByText("Refresh Data");
     fireEvent.click(screen.getByText("Refresh Data"));
     await waitFor(() => expect(mocks.getAll).toHaveBeenCalledTimes(2));
   });
 
   it("renders task distribution and priority charts when tasks exist", async () => {
     render(<DashboardPage />);
-    await waitFor(() => expect(mocks.getAll).toHaveBeenCalled());
-    expect(screen.getByText("Task Distribution")).toBeInTheDocument();
+    await screen.findByText("Task Distribution");
     expect(screen.getByText("Tasks by Priority")).toBeInTheDocument();
   });
 
   it("counts pending requests for admin/manager", async () => {
     render(<DashboardPage />);
-    await waitFor(() => expect(mocks.getAll).toHaveBeenCalled());
-    expect(screen.getByText("Pending Requests")).toBeInTheDocument();
+    await screen.findByText("Pending Requests");
   });
 });
