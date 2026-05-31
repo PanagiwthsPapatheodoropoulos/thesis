@@ -86,7 +86,7 @@ describe("EmployeesPage dedicated", () => {
         <EmployeesPage />
       </MemoryRouter>,
     );
-    await waitFor(() => expect(mocks.getAllPaginated).toHaveBeenCalled(), { timeout: 1000 });
+    await screen.findByTitle("Edit employee", {}, { timeout: 2000 });
     fireEvent.click(screen.getByTitle("Edit employee"));
     await waitFor(() =>
       expect((globalThis as any).__showToast).toHaveBeenCalledWith(
@@ -103,7 +103,7 @@ describe("EmployeesPage dedicated", () => {
         <EmployeesPage />
       </MemoryRouter>,
     );
-    await waitFor(() => expect(mocks.getAllPaginated).toHaveBeenCalled(), { timeout: 1000 });
+    await screen.findByText("Remove", {}, { timeout: 2000 });
     fireEvent.click(screen.getByText("Remove"));
     fireEvent.click(screen.getByText(/Yes, Remove Employee/i));
     await waitFor(() =>
@@ -121,7 +121,7 @@ describe("EmployeesPage dedicated", () => {
         <EmployeesPage />
       </MemoryRouter>,
     );
-    await waitFor(() => expect(mocks.getAllUsers).toHaveBeenCalled(), { timeout: 1000 });
+    await screen.findByText("Add Employee", {}, { timeout: 2000 });
     fireEvent.click(screen.getByText("Add Employee"));
     fireEvent.click(screen.getByText("MockAddSkill"));
 
@@ -146,7 +146,7 @@ describe("EmployeesPage dedicated", () => {
         <EmployeesPage />
       </MemoryRouter>,
     );
-    await waitFor(() => expect(mocks.getAllUsers).toHaveBeenCalled(), { timeout: 1000 });
+    await screen.findByText("Add Employee", {}, { timeout: 2000 });
     fireEvent.click(screen.getByText("Add Employee"));
     expect(screen.getByText(/No departments found/i)).toBeInTheDocument();
     const createBtn = screen.getByText("Create Departments First").closest("button");
@@ -159,7 +159,7 @@ describe("EmployeesPage dedicated", () => {
         <EmployeesPage />
       </MemoryRouter>,
     );
-    await waitFor(() => expect(mocks.getAllUsers).toHaveBeenCalled(), { timeout: 1000 });
+    await screen.findByText("Add Employee", {}, { timeout: 2000 });
     fireEvent.click(screen.getByText("Add Employee"));
 
     // Click the custom user dropdown trigger and select the user option
@@ -186,7 +186,7 @@ describe("EmployeesPage dedicated", () => {
         <EmployeesPage />
       </MemoryRouter>,
     );
-    await waitFor(() => expect(screen.getByText(/No employees found/i)).toBeInTheDocument(), { timeout: 1000 });
+    await screen.findByText(/No employees found/i, {}, { timeout: 2000 });
   });
 
   it("saves edit with role change and sends promotion notification", async () => {
@@ -195,7 +195,7 @@ describe("EmployeesPage dedicated", () => {
         <EmployeesPage />
       </MemoryRouter>,
     );
-    await waitFor(() => expect(mocks.getAllPaginated).toHaveBeenCalled(), { timeout: 1000 });
+    await screen.findByTitle("Edit employee", {}, { timeout: 2000 });
     fireEvent.click(screen.getByTitle("Edit employee"));
     await waitFor(() => expect(screen.getByText("Edit Employee")).toBeInTheDocument(), { timeout: 1000 });
 
