@@ -69,14 +69,13 @@ describe("ChatPage coverage dedicated", () => {
 
   it("renders chat page with contacts and teams tabs", async () => {
     render(<ChatPage />);
-    await waitFor(() => expect(mocks.getAvailableContacts).toHaveBeenCalled());
-    expect(screen.getByText("Alice")).toBeInTheDocument();
+    await screen.findByText("Alice");
     expect(screen.getByText("Bob")).toBeInTheDocument();
   });
 
   it("switches to team tab and shows teams", async () => {
     render(<ChatPage />);
-    await waitFor(() => expect(mocks.getUserTeamChats).toHaveBeenCalled());
+    await screen.findByText("Alice");
     fireEvent.click(screen.getByText("Teams"));
     expect(screen.getByText("Alpha")).toBeInTheDocument();
     expect(screen.getByText("3 members")).toBeInTheDocument();
@@ -85,21 +84,20 @@ describe("ChatPage coverage dedicated", () => {
   it("shows no contacts message when empty", async () => {
     mocks.getAvailableContacts.mockResolvedValue([]);
     render(<ChatPage />);
-    await waitFor(() => expect(mocks.getAvailableContacts).toHaveBeenCalled());
-    expect(screen.getByText("No contacts")).toBeInTheDocument();
+    await screen.findByText("No contacts");
   });
 
   it("shows no teams message when empty", async () => {
     mocks.getUserTeamChats.mockResolvedValue([]);
     render(<ChatPage />);
-    await waitFor(() => expect(mocks.getUserTeamChats).toHaveBeenCalled());
+    await screen.findByText("Alice");
     fireEvent.click(screen.getByText("Teams"));
-    expect(screen.getByText("No teams")).toBeInTheDocument();
+    await screen.findByText("No teams");
   });
 
   it("selects a contact and shows empty message prompt", async () => {
     render(<ChatPage />);
-    await waitFor(() => expect(mocks.getAvailableContacts).toHaveBeenCalled());
+    await screen.findByText("Alice");
 
     fireEvent.click(screen.getByText("Alice"));
     await waitFor(() => expect(mocks.getDirectMessages).toHaveBeenCalled());
@@ -108,7 +106,7 @@ describe("ChatPage coverage dedicated", () => {
 
   it("sends a message and clears input", async () => {
     render(<ChatPage />);
-    await waitFor(() => expect(mocks.getAvailableContacts).toHaveBeenCalled());
+    await screen.findByText("Alice");
     fireEvent.click(screen.getByText("Alice"));
     await waitFor(() => expect(mocks.getDirectMessages).toHaveBeenCalled());
 
@@ -124,7 +122,7 @@ describe("ChatPage coverage dedicated", () => {
   it("restores message text on send failure", async () => {
     mocks.sendMessage.mockRejectedValue(new Error("fail"));
     render(<ChatPage />);
-    await waitFor(() => expect(mocks.getAvailableContacts).toHaveBeenCalled());
+    await screen.findByText("Alice");
     fireEvent.click(screen.getByText("Alice"));
     await waitFor(() => expect(mocks.getDirectMessages).toHaveBeenCalled());
 
@@ -136,7 +134,7 @@ describe("ChatPage coverage dedicated", () => {
 
   it("refresh button calls all fetch functions", async () => {
     render(<ChatPage />);
-    await waitFor(() => expect(mocks.getAvailableContacts).toHaveBeenCalled());
+    await screen.findByText("Alice");
     fireEvent.click(screen.getByText("Refresh Now"));
     await waitFor(() => expect(mocks.getAvailableContacts).toHaveBeenCalledTimes(2));
     expect(mocks.getUnreadCountPerContact).toHaveBeenCalledTimes(2);
@@ -144,13 +142,13 @@ describe("ChatPage coverage dedicated", () => {
 
   it("displays unread badge for contacts", async () => {
     render(<ChatPage />);
-    await waitFor(() => expect(mocks.getAvailableContacts).toHaveBeenCalled());
+    await screen.findByText("Alice");
     expect(screen.getByText("2")).toBeInTheDocument();
   });
 
   it("selects a team and switches to team chat mode", async () => {
     render(<ChatPage />);
-    await waitFor(() => expect(mocks.getUserTeamChats).toHaveBeenCalled());
+    await screen.findByText("Alice");
     fireEvent.click(screen.getByText("Teams"));
     fireEvent.click(screen.getByText("Alpha"));
     await waitFor(() => expect(mocks.getTeamMessages).toHaveBeenCalledWith("t1"));
@@ -162,9 +160,9 @@ describe("ChatPage coverage dedicated", () => {
       { id: "m2", senderId: "u1", receiverId: "c1", message: "Hi back!", isRead: true, createdAt: new Date().toISOString(), senderName: "admin1" },
     ]);
     render(<ChatPage />);
-    await waitFor(() => expect(mocks.getAvailableContacts).toHaveBeenCalled());
+    await screen.findByText("Alice");
     fireEvent.click(screen.getByText("Alice"));
-    await waitFor(() => expect(screen.getByText("Hey there!")).toBeInTheDocument());
+    await screen.findByText("Hey there!");
     expect(screen.getByText("Hi back!")).toBeInTheDocument();
   });
 });

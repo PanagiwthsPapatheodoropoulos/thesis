@@ -50,8 +50,7 @@ describe("EmployeeProfilePage coverage dedicated", () => {
 
   it("renders employee profile with details and skills", async () => {
     renderWithRoute();
-    await waitFor(() => expect(mocks.getById).toHaveBeenCalledWith("e1"));
-    expect(screen.getByText("Jane Smith")).toBeInTheDocument();
+    await screen.findByText("Jane Smith");
     expect(screen.getByText("Engineer")).toBeInTheDocument();
     expect(screen.getByText("Backend")).toBeInTheDocument();
     expect(screen.getByText(/\$50\/hr/)).toBeInTheDocument();
@@ -60,36 +59,32 @@ describe("EmployeeProfilePage coverage dedicated", () => {
 
   it("renders skill list with levels", async () => {
     renderWithRoute();
-    await waitFor(() => expect(mocks.getSkills).toHaveBeenCalled());
-    expect(screen.getByText("Java")).toBeInTheDocument();
+    await screen.findByText("Java");
     expect(screen.getByText("Level 4/5")).toBeInTheDocument();
     expect(screen.getByText("Spring")).toBeInTheDocument();
   });
 
   it("renders radar chart and productivity chart", async () => {
     renderWithRoute();
-    await waitFor(() => expect(mocks.getSkills).toHaveBeenCalled());
-    expect(screen.getByText("SkillRadarChart")).toBeInTheDocument();
+    await screen.findByText("SkillRadarChart");
     expect(screen.getByText("ProductivityChart")).toBeInTheDocument();
   });
 
   it("shows not found when employee fetch fails", async () => {
     mocks.getById.mockRejectedValue(new Error("not found"));
     renderWithRoute();
-    await waitFor(() => expect(mocks.getById).toHaveBeenCalled());
-    expect(screen.getByText("Employee not found")).toBeInTheDocument();
+    await screen.findByText("Employee not found");
   });
 
   it("handles skill fetch failure gracefully", async () => {
     mocks.getSkills.mockRejectedValue(new Error("no skills"));
     renderWithRoute();
-    await waitFor(() => expect(mocks.getById).toHaveBeenCalled());
-    expect(screen.getByText("Jane Smith")).toBeInTheDocument();
+    await screen.findByText("Jane Smith");
   });
 
   it("renders hire date when available", async () => {
     renderWithRoute();
-    await waitFor(() => expect(mocks.getById).toHaveBeenCalled());
+    await screen.findByText("Jane Smith");
     expect(screen.getByText(/2024/)).toBeInTheDocument();
   });
 
@@ -100,7 +95,7 @@ describe("EmployeeProfilePage coverage dedicated", () => {
     });
     mocks.getSkills.mockResolvedValue([]);
     renderWithRoute();
-    await waitFor(() => expect(mocks.getById).toHaveBeenCalled());
+    await screen.findByText("Jane Smith");
     expect(screen.getByText("No position specified")).toBeInTheDocument();
     expect(screen.getByText("Not assigned")).toBeInTheDocument();
   });
@@ -157,8 +152,7 @@ describe("EmployeeProfilePage coverage dedicated", () => {
   it("renders No Skills Recorded when skills array is empty", async () => {
     mocks.getSkills.mockResolvedValue([]);
     renderWithRoute();
-    await waitFor(() => expect(mocks.getById).toHaveBeenCalled());
-    expect(screen.getByText("No Skills Recorded")).toBeInTheDocument();
+    await screen.findByText("No Skills Recorded");
     expect(screen.getByText("This employee hasn't added any skills yet")).toBeInTheDocument();
   });
 
@@ -169,9 +163,7 @@ describe("EmployeeProfilePage coverage dedicated", () => {
       { id: "s3" }, // missing skillName and level
     ]);
     renderWithRoute();
-    await waitFor(() => expect(mocks.getById).toHaveBeenCalled());
-    // Should render because 1 is valid, but the radar chart component will receive only the valid one
-    expect(screen.getByText("Valid")).toBeInTheDocument();
+    await screen.findByText("Valid");
     expect(screen.queryByText("Invalid Level")).toBeInTheDocument(); // It renders in the list but filtered in the chart
   });
 });
