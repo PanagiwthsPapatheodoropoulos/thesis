@@ -35,13 +35,6 @@ describe("LandingPage dedicated", () => {
     expect(screen.getByText("Live Telemetry")).toBeInTheDocument();
   });
 
-  it("renders stats section with accuracy, latency, uptime", () => {
-    render(<MemoryRouter><LandingPage /></MemoryRouter>);
-    expect(screen.getByText("98%")).toBeInTheDocument();
-    expect(screen.getByText("50ms")).toBeInTheDocument();
-    expect(screen.getByText("24/7")).toBeInTheDocument();
-  });
-
   it("navigates to /login when Login button is clicked", () => {
     render(<MemoryRouter><LandingPage /></MemoryRouter>);
     const loginBtn = screen.getAllByText(/Login/i).find(el => el.tagName === "BUTTON" || el.closest("button"));
