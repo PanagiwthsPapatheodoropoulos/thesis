@@ -483,7 +483,13 @@ const TasksPage = () => {
   };
 
   const handleCloneTask = (taskToClone: Task) => {
-    setPredictedHours(taskToClone.estimatedHours || null);
+    setPredictedHours(
+      typeof taskToClone.estimatedHours === 'number'
+        ? taskToClone.estimatedHours
+        : taskToClone.estimatedHours
+        ? parseFloat(taskToClone.estimatedHours)
+        : null
+    );
     setShowAIDetails(false);
     setShowTeamDropdown(false);
     setShowEmployeeDropdown(false);

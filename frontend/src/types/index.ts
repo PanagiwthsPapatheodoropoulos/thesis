@@ -64,6 +64,7 @@ export interface Employee {
   lastName: string;
   position?: string;
   department?: string;
+  role?: string;
   hireDate?: string;
   hourlyRate?: number;
   maxWeeklyHours?: number;
@@ -225,6 +226,7 @@ export interface Team {
   users?: User[];
   tasks?: Task[];
   companyId?: string;
+  department?: string;
   createdAt?: string;
   memberCount?: number;
   updatedAt?: string;
