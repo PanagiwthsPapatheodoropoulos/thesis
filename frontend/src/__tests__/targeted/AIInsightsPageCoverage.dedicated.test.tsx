@@ -76,23 +76,21 @@ describe("AIInsightsPage coverage dedicated - expanded", () => {
 
   it("renders overview tab with completion rate and metrics", async () => {
     render(<AIInsightsPage />);
-    await waitFor(() => expect(mocks.getProductivityAnalytics).toHaveBeenCalled());
-    expect(screen.getByText("AI Insights Dashboard")).toBeInTheDocument();
+    await screen.findByText("AI Insights Dashboard");
     expect(screen.getByText("78%")).toBeInTheDocument(); // completion rate
     expect(screen.getByText("Completion Rate")).toBeInTheDocument();
   });
 
   it("renders top performers in overview tab", async () => {
     render(<AIInsightsPage />);
-    await waitFor(() => expect(mocks.getProductivityAnalytics).toHaveBeenCalled());
-    expect(screen.getByText("Top Performers")).toBeInTheDocument();
+    await screen.findByText("Top Performers");
     expect(screen.getByText("Alice")).toBeInTheDocument();
     expect(screen.getByText("Bob")).toBeInTheDocument();
   });
 
   it("renders skill insights tab with skill data", async () => {
     render(<AIInsightsPage />);
-    await waitFor(() => expect(mocks.getProductivityAnalytics).toHaveBeenCalled());
+    await screen.findByText("Skill Insights");
     fireEvent.click(screen.getByText("Skill Insights"));
     expect(screen.getByText("Skill Usage Across Company")).toBeInTheDocument();
     expect(screen.getByText("React")).toBeInTheDocument();
@@ -101,7 +99,7 @@ describe("AIInsightsPage coverage dedicated - expanded", () => {
 
   it("renders recommendations tab with items", async () => {
     render(<AIInsightsPage />);
-    await waitFor(() => expect(mocks.getProductivityAnalytics).toHaveBeenCalled());
+    await screen.findByText("Recommendations");
     fireEvent.click(screen.getByText("Recommendations"));
     expect(screen.getByText(/Consider hiring more backend engineers/)).toBeInTheDocument();
     expect(screen.getByText(/Frontend team performance is excellent/)).toBeInTheDocument();
@@ -130,7 +128,7 @@ describe("AIInsightsPage coverage dedicated - expanded", () => {
       recommendations: [],
     });
     render(<AIInsightsPage />);
-    await waitFor(() => expect(mocks.getProductivityAnalytics).toHaveBeenCalled());
+    await screen.findByText("AI Insights Dashboard");
     // Overview renders with zero values — multiple 0% cards exist
     expect(screen.getAllByText("0%").length).toBeGreaterThan(0);
   });
@@ -144,7 +142,7 @@ describe("AIInsightsPage coverage dedicated - expanded", () => {
 
   it("refresh button triggers data reload", async () => {
     render(<AIInsightsPage />);
-    await waitFor(() => expect(mocks.getProductivityAnalytics).toHaveBeenCalled());
+    await screen.findByText("Refresh Insights");
     fireEvent.click(screen.getByText("Refresh Insights"));
     await waitFor(() => expect(mocks.getProductivityAnalytics).toHaveBeenCalledTimes(2));
   });

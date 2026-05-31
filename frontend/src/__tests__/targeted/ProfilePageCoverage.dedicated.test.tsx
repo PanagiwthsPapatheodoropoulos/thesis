@@ -55,8 +55,7 @@ describe("ProfilePage coverage dedicated", () => {
 
   it("renders profile form with user and employee data", async () => {
     render(<MemoryRouter><ProfilePage /></MemoryRouter>);
-    await waitFor(() => expect(mocks.usersGetById).toHaveBeenCalled());
-    expect(screen.getByDisplayValue("test@x.com")).toBeInTheDocument();
+    await screen.findByDisplayValue("test@x.com");
     expect(screen.getByDisplayValue("John")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Doe")).toBeInTheDocument();
   });
@@ -64,27 +63,24 @@ describe("ProfilePage coverage dedicated", () => {
   it("renders without employee profile", async () => {
     mocks.getByUserId.mockRejectedValue(new Error("no profile"));
     render(<MemoryRouter><ProfilePage /></MemoryRouter>);
-    await waitFor(() => expect(mocks.usersGetById).toHaveBeenCalled());
-    expect(screen.getByText(/No employee profile/i)).toBeInTheDocument();
+    await screen.findByText(/No employee profile/i);
   });
 
   it("shows active employee profile status", async () => {
     render(<MemoryRouter><ProfilePage /></MemoryRouter>);
-    await waitFor(() => expect(mocks.usersGetById).toHaveBeenCalled());
-    expect(screen.getByText(/active employee profile/i)).toBeInTheDocument();
+    await screen.findByText(/active employee profile/i);
   });
 
   it("shows skills section and charts when employee has skills", async () => {
     render(<MemoryRouter><ProfilePage /></MemoryRouter>);
-    await waitFor(() => expect(mocks.getSkills).toHaveBeenCalled());
-    expect(screen.getByText("SkillsInput")).toBeInTheDocument();
+    await screen.findByText("SkillsInput");
     expect(screen.getByText("SkillRadarChart")).toBeInTheDocument();
     expect(screen.getByText("ProductivityChart")).toBeInTheDocument();
   });
 
   it("updates email and saves profile", async () => {
     render(<MemoryRouter><ProfilePage /></MemoryRouter>);
-    await waitFor(() => expect(mocks.usersGetById).toHaveBeenCalled());
+    await screen.findByDisplayValue("test@x.com");
 
     fireEvent.change(screen.getByDisplayValue("test@x.com"), { target: { value: "new@x.com" } });
     fireEvent.click(screen.getByText("Save Changes"));
@@ -93,7 +89,7 @@ describe("ProfilePage coverage dedicated", () => {
 
   it("shows warning when username is changed", async () => {
     render(<MemoryRouter><ProfilePage /></MemoryRouter>);
-    await waitFor(() => expect(mocks.usersGetById).toHaveBeenCalled());
+    await screen.findByDisplayValue("testuser");
 
     fireEvent.change(screen.getByDisplayValue("testuser"), { target: { value: "newuser" } });
     expect(screen.getByText(/Changing your username will log you out/i)).toBeInTheDocument();
@@ -101,14 +97,13 @@ describe("ProfilePage coverage dedicated", () => {
 
   it("refresh button calls fetchProfile", async () => {
     render(<MemoryRouter><ProfilePage /></MemoryRouter>);
-    await waitFor(() => expect(mocks.usersGetById).toHaveBeenCalled());
+    await screen.findByText("Refresh");
     fireEvent.click(screen.getByText("Refresh"));
     await waitFor(() => expect(mocks.usersGetById).toHaveBeenCalledTimes(2));
   });
 
   it("displays company info as read-only", async () => {
     render(<MemoryRouter><ProfilePage /></MemoryRouter>);
-    await waitFor(() => expect(mocks.usersGetById).toHaveBeenCalled());
-    expect(screen.getByDisplayValue("Acme")).toBeInTheDocument();
+    await screen.findByDisplayValue("Acme");
   });
 });
