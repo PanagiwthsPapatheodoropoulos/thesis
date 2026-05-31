@@ -42,8 +42,7 @@ describe("TaskDurationPredictor dedicated", () => {
     );
 
     fireEvent.click(screen.getByText(/Get AI Prediction/i));
-    await waitFor(() => expect(mocks.predictDuration).toHaveBeenCalled());
-    expect(screen.getByText(/Predicted Duration/i)).toBeInTheDocument();
+    await screen.findByText(/Predicted Duration/i);
     expect(screen.getByText(/Model: v1/i)).toBeInTheDocument();
     expect(onPredictionReceived).toHaveBeenCalledWith(6.25);
   });
@@ -69,7 +68,7 @@ describe("TaskDurationPredictor dedicated", () => {
     );
 
     fireEvent.click(screen.getByText(/Get AI Prediction/i));
-    await waitFor(() => expect(mocks.predictDuration).toHaveBeenCalledTimes(1));
+    await screen.findByText(/Recalculate Prediction/i);
 
     fireEvent.click(screen.getByText(/Recalculate Prediction/i));
     await waitFor(() => expect(mocks.predictDuration).toHaveBeenCalledTimes(2));
