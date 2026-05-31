@@ -104,7 +104,7 @@ describe("DepartmentsPage coverage", () => {
     departmentsAPI.getAll.mockResolvedValueOnce([{ name: "New Dept", employeeCount: 0 }]); // second call on refresh
     
     render(<DepartmentsPage />);
-    await waitFor(() => expect(screen.queryByRole('heading', { level: 2 }))?.not.toBeInTheDocument());
+    await screen.findByText(/New Department/i);
     
     // Open modal
     fireEvent.click(screen.getByText(/New Department/i));
@@ -126,7 +126,7 @@ describe("DepartmentsPage coverage", () => {
     departmentsAPI.create.mockRejectedValueOnce(new Error("Failed"));
     
     render(<DepartmentsPage />);
-    await waitFor(() => expect(departmentsAPI.getAll).toHaveBeenCalled());
+    await screen.findByText(/New Department/i);
     
     fireEvent.click(screen.getByText(/New Department/i));
     fireEvent.change(screen.getByPlaceholderText("e.g., Engineering, Marketing"), { target: { value: "Fail Dept" } });
