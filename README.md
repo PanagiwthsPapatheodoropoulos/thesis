@@ -227,7 +227,7 @@ graph TD
 
 ## 📄 License
 
-Proprietary License. Copyright (c) 2026 Panagiotis Papatheodoropoulos. All rights reserved. 
+Proprietary License. Copyright (c) 2026 Panagiotis Papatheodoropoulos & Iliana Christana. All rights reserved. 
 
 The software and all associated files are provided strictly for viewing and evaluation purposes. You are not permitted to copy, modify, distribute, or use this code for any other projects without explicit, prior written consent from the copyright holder. See the [LICENSE](file:///c:/Users/Takis/Desktop/thesis/LICENSE) file for the full proprietary terms and restrictions.
 
