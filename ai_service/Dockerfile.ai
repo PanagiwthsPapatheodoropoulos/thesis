@@ -1,0 +1,117 @@
+# ============================================================
+# AI Service Dockerfile - Pre-download all models
+# ============================================================
+FROM python:3.9-slim
+
+WORKDIR /app
+
+# ============================================================
+# INSTALL SYSTEM DEPENDENCIES
+# ============================================================
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    curl \
+    wget \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# ============================================================
+# UPGRADE PIP
+# ============================================================
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel
+
+# ============================================================
+# INSTALL PYTORCH CPU (BEFORE requirements.txt)
+# ============================================================
+RUN pip install --no-cache-dir \
+    torch==2.1.2 \
+    torchvision==0.16.2 \
+    --index-url https://download.pytorch.org/whl/cpu && \
+    echo "PyTorch CPU installed"
+
+# ============================================================
+# INSTALL REMAINING PYTHON DEPENDENCIES
+# ============================================================
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt && \
+    echo "All dependencies installed"
+
+# ============================================================
+# CREATE DIRECTORIES AND SET PERMISSIONS FIRST
+# ============================================================
+RUN mkdir -p /root/.cache/huggingface \
+             /root/.cache/torch \
+             /app/models \
+             /app/logs && \
+    chmod -R 777 /root/.cache
+
+# ============================================================
+# PRE-DOWNLOAD ALL MODELS AT BUILD TIME
+# ============================================================
+ENV TRANSFORMERS_CACHE=/root/.cache/huggingface
+ENV HF_HOME=/root/.cache/huggingface
+ENV TORCH_HOME=/root/.cache/torch
+
+# Download sentence-transformers model
+RUN python -c "\
+from sentence_transformers import SentenceTransformer; \
+print('Downloading sentence-transformers model...'); \
+model = SentenceTransformer('all-MiniLM-L6-v2'); \
+print('Model downloaded and cached');" && \
+echo "Sentence Transformers model ready"
+
+# Download spaCy model
+RUN python -m spacy download en_core_web_sm && \
+    python -c "import spacy; spacy.load('en_core_web_sm'); print('spaCy model verified')"
+
+# ============================================================
+# COPY APPLICATION CODE
+# ============================================================
+COPY --chown=root:root . .
+
+# ============================================================
+# VERIFY MODELS ARE ACCESSIBLE
+# ============================================================
+RUN python -c "\
+from sentence_transformers import SentenceTransformer; \
+import spacy; \
+print('Verifying models...'); \
+model = SentenceTransformer('all-MiniLM-L6-v2'); \
+nlp = spacy.load('en_core_web_sm'); \
+print('All models verified and ready')"
+
+# ============================================================
+# SUPPRESS WARNINGS
+# ============================================================
+ENV TF_CPP_MIN_LOG_LEVEL=2
+ENV TF_ENABLE_ONEDNN_OPTS=0
+ENV PYTHONUNBUFFERED=1
+
+# ============================================================
+# EXPOSE PORT
+# ============================================================
+EXPOSE 5000
+
+# ============================================================
+# HEALTH CHECK
+# ============================================================
+HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
+  CMD curl -f http://localhost:5000/health || exit 1
+
+# ============================================================
+# STARTUP WITH PRELOADING
+# ============================================================
+CMD ["gunicorn", \
+  "--bind", "0.0.0.0:5000", \
+  "--workers", "2", \
+  "--threads", "4", \
+  "--worker-class", "uvicorn.workers.UvicornWorker", \
+  "--timeout", "180", \
+  "--graceful-timeout", "120", \
+  "--keep-alive", "5", \
+  "--preload", \
+  "--access-logfile", "-", \
+  "--error-logfile", "-", \
+  "--log-level", "info", \
+  "main:app"]
