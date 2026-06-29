@@ -22,7 +22,7 @@ describe("SuperAdminDashboardPage behavior", () => {
       vi.fn().mockResolvedValue({
         ok: true,
         headers: { get: () => "application/json" },
-        json: async () => [{ id: "c1", name: "ACME", joinCode: "J1", isActive: true, employeeCount: 3 }],
+        json: async () => [{ id: "c1", name: "ACME", joinCode: "J1", employeeCount: 3 }],
         text: async () => "",
         status: 200,
       }),
@@ -40,4 +40,3 @@ describe("SuperAdminDashboardPage behavior", () => {
     await waitFor(() => expect(fetch).toHaveBeenCalled());
   });
 });
-

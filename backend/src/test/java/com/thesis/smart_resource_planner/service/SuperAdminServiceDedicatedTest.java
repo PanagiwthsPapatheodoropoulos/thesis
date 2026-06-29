@@ -72,7 +72,6 @@ class SuperAdminServiceDedicatedTest {
         company = new Company();
         company.setId(companyId);
         company.setName("Acme");
-        company.setIsActive(true);
     }
 
     @Test
@@ -92,18 +91,7 @@ class SuperAdminServiceDedicatedTest {
         assertEquals(2, result.get(0).getTeamCount());
     }
 
-    @Test
-    @DisplayName("toggleCompanyActive flips active flag and saves")
-    void toggleCompanyActive_flipsFlag() {
-        CompanyDTO mapped = new CompanyDTO();
-        when(companyRepository.findById(companyId)).thenReturn(Optional.of(company));
-        when(companyRepository.save(company)).thenReturn(company);
-        when(modelMapper.map(company, CompanyDTO.class)).thenReturn(mapped);
 
-        superAdminService.toggleCompanyActive(companyId);
-        assertFalse(company.getIsActive());
-        verify(companyRepository).save(company);
-    }
 
     @Test
     @DisplayName("getUsersByCompany throws when company missing")

@@ -1,6 +1,5 @@
 package com.thesis.smart_resource_planner.service;
 
-import com.thesis.smart_resource_planner.enums.TaskPriority;
 import com.thesis.smart_resource_planner.enums.TaskStatus;
 import com.thesis.smart_resource_planner.enums.UserRole;
 import com.thesis.smart_resource_planner.enums.TaskAssignmentStatus;
@@ -112,7 +111,8 @@ class EmployeeServiceCoverageDedicatedTest {
         existingOrphan.setUser(null);
 
         when(employeeRepository.findByUserId(user.getId())).thenReturn(Optional.of(existingOrphan));
-        doThrow(new RuntimeException("DB error")).when(employeeSkillRepository).deleteByEmployeeId(existingOrphan.getId());
+        doThrow(new RuntimeException("DB error")).when(employeeSkillRepository)
+                .deleteByEmployeeId(existingOrphan.getId());
 
         assertThrows(BadRequestException.class, () -> employeeService.createEmployee(createDTO));
     }
@@ -211,7 +211,8 @@ class EmployeeServiceCoverageDedicatedTest {
         when(employeeRepository.findById(empId)).thenReturn(Optional.of(emp));
         when(skillRepository.findById(skillId)).thenReturn(Optional.of(skill));
         when(employeeSkillRepository.findByEmployeeIdAndSkillId(empId, skillId)).thenReturn(Optional.of(existingSkill));
-        when(employeeSkillRepository.saveAndFlush(any(EmployeeSkill.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(employeeSkillRepository.saveAndFlush(any(EmployeeSkill.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
         EmployeeSkillDTO mappedDto = new EmployeeSkillDTO();
         mappedDto.setProficiencyLevel(5);

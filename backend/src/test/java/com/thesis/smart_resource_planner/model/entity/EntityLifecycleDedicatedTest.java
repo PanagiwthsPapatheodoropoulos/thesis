@@ -62,7 +62,6 @@ class EntityLifecycleDedicatedTest {
         company.onCreate();
         assertNotNull(company.getCreatedAt());
         assertNotNull(company.getUpdatedAt());
-        assertTrue(company.getIsActive());
         company.onUpdate();
         assertNotNull(company.getUpdatedAt());
 

@@ -57,7 +57,6 @@ public class CompanyService {
         Company company = Company.builder()
                 .name(name)
                 .joinCode(joinCode)
-                .isActive(true)
                 .build();
 
         Company saved = companyRepository.save(company);

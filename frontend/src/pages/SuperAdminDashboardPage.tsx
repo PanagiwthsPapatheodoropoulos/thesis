@@ -182,38 +182,6 @@ const SuperAdminDashboardPage = () => {
     }
   };
 
-  const toggleCompanyActive = async (company) => {
-    try {
-      const token = "cookie-based";
-      const response = await fetch(
-        `/api/super-admin/companies/${company.id}/toggle-active`,
-        {
-          method: 'PATCH',
-          credentials: 'same-origin'
-        }
-      );
-      
-      if (!response.ok) throw new Error('Failed to toggle company status');
-      
-      const updatedCompany = await response.json();
-      
-      setCompanies(prevCompanies => 
-        prevCompanies.map(c => 
-          c.id === company.id ? { ...c, isActive: updatedCompany.isActive } : c
-        )
-      );
-
-      if (companyData && companyData.id === company.id) {
-        setCompanyData(prev => ({
-          ...prev,
-          isActive: updatedCompany.isActive
-        }));
-      }
-
-    } catch (error: any) {
-      showToast('Failed to update company status', 'error');
-    }
-  };
 
   const handleLogout = () => {
     logout();
@@ -232,7 +200,6 @@ const SuperAdminDashboardPage = () => {
   );
 
   const totalUsers = companies.reduce((sum, c) => sum + (c.employeeCount || 0), 0);
-  const activeCompanies = companies.filter(c => c.isActive).length;
 
   // --- NEW STYLING HELPERS ---
   const AtmosphericBackground = useMemo(() => (
@@ -295,19 +262,6 @@ const SuperAdminDashboardPage = () => {
                 </div>
               </div>
               
-              <div className="flex items-center gap-4">
-                <div className={`px-4 py-2 rounded-lg flex items-center gap-2 border ${companyData.isActive ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
-                   {companyData.isActive ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
-                   <span className="font-medium">{companyData.isActive ? 'Active' : 'Inactive'}</span>
-                </div>
-                
-                <button
-                  onClick={() => toggleCompanyActive(companyData)}
-                  className="px-5 py-2.5 bg-white/[0.05] hover:bg-white/[0.1] text-white border border-white/10 rounded-lg transition-all"
-                >
-                  Toggle Status
-                </button>
-              </div>
             </div>
           </div>
 
@@ -417,9 +371,8 @@ const SuperAdminDashboardPage = () => {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
           <StatCard icon={Building2} label="Total Companies" value={companies.length} color="indigo" />
-          <StatCard icon={CheckCircle} label="Active Companies" value={activeCompanies} color="green" />
           <StatCard icon={Users} label="Total Users" value={totalUsers} color="purple" />
           <StatCard icon={TrendingUp} label="System Health" value="98" color="green" isPercentage />
         </div>
@@ -465,11 +418,6 @@ const SuperAdminDashboardPage = () => {
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-1.5">
                         <h3 className="text-lg font-bold text-white group-hover:text-indigo-300 transition-colors">{company.name}</h3>
-                        {company.isActive ? (
-                          <span className="px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] uppercase font-bold tracking-wider rounded-full">Active</span>
-                        ) : (
-                          <span className="px-2 py-0.5 bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] uppercase font-bold tracking-wider rounded-full">Inactive</span>
-                        )}
                       </div>
                       
                       <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-slate-500">

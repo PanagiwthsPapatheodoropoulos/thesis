@@ -17,7 +17,6 @@ public class CompanyDTO {
     private String name;
     private String joinCode;
     private String domain;
-    private Boolean isActive;
     private Integer employeeCount;
     private Integer departmentCount;
     private Integer teamCount;

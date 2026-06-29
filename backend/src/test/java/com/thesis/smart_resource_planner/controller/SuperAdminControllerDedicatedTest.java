@@ -60,7 +60,6 @@ class SuperAdminControllerDedicatedTest {
         testCompanyDTO = new CompanyDTO();
         testCompanyDTO.setId(companyId);
         testCompanyDTO.setName("Global Corp");
-        testCompanyDTO.setIsActive(true);
 
         Company company = new Company();
         company.setId(UUID.randomUUID());
@@ -131,17 +130,7 @@ class SuperAdminControllerDedicatedTest {
         verify(companyService, times(1)).deleteCompany(companyId);
     }
 
-    @Test
-    @DisplayName("Should toggle company active state successfully")
-    void testToggleCompanyActive_Success() throws Exception {
-        when(superAdminService.toggleCompanyActive(companyId)).thenReturn(testCompanyDTO);
 
-        mockMvc.perform(patch("/api/super-admin/companies/{companyId}/toggle-active", companyId)
-                        .with(user(superAdminPrincipal)))
-                .andExpect(status().isOk());
-
-        verify(superAdminService, times(1)).toggleCompanyActive(companyId);
-    }
 
     @Test
     @DisplayName("Should retrieve company users successfully")

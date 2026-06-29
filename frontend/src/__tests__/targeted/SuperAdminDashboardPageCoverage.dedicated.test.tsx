@@ -21,8 +21,8 @@ import SuperAdminDashboardPage from "../../pages/SuperAdminDashboardPage";
 
 describe("SuperAdminDashboardPage coverage dedicated", () => {
   const companyData = [
-    { id: "c1", name: "Acme Corp", isActive: true, joinCode: "ABC123", employeeCount: 10, departmentCount: 3, teamCount: 2 },
-    { id: "c2", name: "Beta Inc", isActive: false, joinCode: "XYZ789", employeeCount: 5, departmentCount: 1, teamCount: 1 },
+    { id: "c1", name: "Acme Corp", joinCode: "ABC123", employeeCount: 10, departmentCount: 3, teamCount: 2 },
+    { id: "c2", name: "Beta Inc", joinCode: "XYZ789", employeeCount: 5, departmentCount: 1, teamCount: 1 },
   ];
 
   beforeEach(() => {
@@ -35,12 +35,6 @@ describe("SuperAdminDashboardPage coverage dedicated", () => {
         return Promise.resolve({
           ok: true,
           json: () => Promise.resolve(companyData),
-        });
-      }
-      if (url.includes("/toggle-active")) {
-        return Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve({ ...companyData[0], isActive: false }),
         });
       }
       // Company detail sub-routes
@@ -85,7 +79,6 @@ describe("SuperAdminDashboardPage coverage dedicated", () => {
   it("renders overview stats cards", async () => {
     render(<MemoryRouter><SuperAdminDashboardPage /></MemoryRouter>);
     await waitFor(() => expect(screen.getByText("Total Companies")).toBeInTheDocument());
-    expect(screen.getByText("Active Companies")).toBeInTheDocument();
     expect(screen.getByText("System Health")).toBeInTheDocument();
   });
 

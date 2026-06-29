@@ -39,7 +39,6 @@ class EmployeeRepositoryTest {
         Company company = Company.builder()
                 .name("Test Co")
                 .joinCode("ABC123")
-                .isActive(true)
                 .build();
         Company savedCompany = companyRepository.save(company);
 

@@ -43,7 +43,6 @@ class SuperAdminServiceCoverageDedicatedTest {
         company = new Company();
         company.setId(companyId);
         company.setName("TestCo");
-        company.setIsActive(true);
     }
 
     @Test
@@ -70,13 +69,7 @@ class SuperAdminServiceCoverageDedicatedTest {
         assertThrows(ResourceNotFoundException.class, () -> superAdminService.getCompanyById(missing));
     }
 
-    @Test
-    @DisplayName("toggleCompanyActive throws when company not found")
-    void toggleCompanyActive_throws() {
-        UUID missing = UUID.randomUUID();
-        when(companyRepository.findById(missing)).thenReturn(Optional.empty());
-        assertThrows(ResourceNotFoundException.class, () -> superAdminService.toggleCompanyActive(missing));
-    }
+
 
     @Test
     @DisplayName("getTasksByCompany throws when company not found")
@@ -179,11 +172,10 @@ class SuperAdminServiceCoverageDedicatedTest {
     @Test
     @DisplayName("getSystemStatistics counts inactive companies")
     void getSystemStatistics_countsInactive() {
-        Company inactive = new Company();
-        inactive.setId(UUID.randomUUID());
-        inactive.setIsActive(false);
+        Company company2 = new Company();
+        company2.setId(UUID.randomUUID());
 
-        when(companyRepository.findAll()).thenReturn(List.of(company, inactive));
+        when(companyRepository.findAll()).thenReturn(List.of(company, company2));
         when(userRepository.countByCompanyId(any(UUID.class))).thenReturn(0L);
         when(employeeRepository.countEmployeesByCompanyIdForDashboard(any(UUID.class))).thenReturn(0L);
         when(taskRepository.findByCompanyId(any(UUID.class))).thenReturn(List.of());
@@ -192,8 +184,8 @@ class SuperAdminServiceCoverageDedicatedTest {
 
         Map<String, Object> stats = superAdminService.getSystemStatistics();
         assertEquals(2, stats.get("totalCompanies"));
-        assertEquals(1L, stats.get("activeCompanies"));
-        assertEquals(1L, stats.get("inactiveCompanies"));
+        assertEquals(2, stats.get("activeCompanies"));
+        assertEquals(0, stats.get("inactiveCompanies"));
     }
 
     @Test

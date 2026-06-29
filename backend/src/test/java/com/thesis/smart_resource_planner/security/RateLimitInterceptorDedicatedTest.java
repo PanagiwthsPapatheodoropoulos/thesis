@@ -1,6 +1,5 @@
 package com.thesis.smart_resource_planner.security;
 
-import io.github.bucket4j.Bucket;
 import io.github.bucket4j.BucketConfiguration;
 import io.github.bucket4j.redis.lettuce.cas.LettuceBasedProxyManager;
 import io.github.bucket4j.distributed.proxy.RemoteBucketBuilder;
@@ -63,7 +62,7 @@ class RateLimitInterceptorDedicatedTest {
     void setUp() throws Exception {
         lenient().when(proxyManager.builder()).thenReturn(proxyBuilder);
         lenient().when(proxyBuilder.build(any(byte[].class), any(BucketConfiguration.class))).thenReturn(bucket);
-        
+
         responseWriter = new StringWriter();
         PrintWriter writer = new PrintWriter(responseWriter);
         lenient().when(response.getWriter()).thenReturn(writer);
@@ -91,7 +90,7 @@ class RateLimitInterceptorDedicatedTest {
         UUID userId = UUID.randomUUID();
         UserPrincipal principal = mock(UserPrincipal.class);
         when(principal.getId()).thenReturn(userId);
-        
+
         when(request.getRequestURI()).thenReturn("/api/tasks");
         when(securityContext.getAuthentication()).thenReturn(authentication);
         when(authentication.getPrincipal()).thenReturn(principal);
@@ -102,7 +101,7 @@ class RateLimitInterceptorDedicatedTest {
         boolean result = interceptor.preHandle(request, response, new Object());
 
         assertTrue(result);
-        
+
         byte[] expectedKey = ("rate_limit:user:" + userId).getBytes(StandardCharsets.UTF_8);
         verify(proxyBuilder).build(eq(expectedKey), any(BucketConfiguration.class));
         verify(bucket).tryConsume(1);
@@ -135,7 +134,7 @@ class RateLimitInterceptorDedicatedTest {
     void testPreHandleUnauthenticatedXForwardedFor() throws Exception {
         when(request.getRequestURI()).thenReturn("/api/public/status");
         when(request.getHeader("X-Forwarded-For")).thenReturn("192.168.1.100, 10.0.0.1");
-        
+
         // No authentication in context
         SecurityContextHolder.setContext(securityContext);
         when(securityContext.getAuthentication()).thenReturn(null);

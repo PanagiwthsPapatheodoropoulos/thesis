@@ -87,24 +87,7 @@ public class SuperAdminService {
         return dto;
     }
 
-    /**
-     * Toggles the active/inactive status of a company.
-     *
-     * @param companyId UUID of the company
-     * @return the updated {@link CompanyDTO}
-     * @throws com.thesis.smart_resource_planner.exception.ResourceNotFoundException if
-     *                                                                               not
-     *                                                                               found
-     */
-    public CompanyDTO toggleCompanyActive(UUID companyId) {
-        Company company = companyRepository.findById(companyId)
-                .orElseThrow(() -> new ResourceNotFoundException("Company not found"));
 
-        company.setIsActive(!company.getIsActive());
-        Company updated = companyRepository.save(company);
-
-        return modelMapper.map(updated, CompanyDTO.class);
-    }
 
     // USER OPERATIONS
     /**
@@ -405,8 +388,8 @@ public class SuperAdminService {
         List<Company> allCompanies = companyRepository.findAll();
 
         stats.put("totalCompanies", allCompanies.size());
-        stats.put("activeCompanies", allCompanies.stream().filter(Company::getIsActive).count());
-        stats.put("inactiveCompanies", allCompanies.stream().filter(c -> !c.getIsActive()).count());
+        stats.put("activeCompanies", allCompanies.size());
+        stats.put("inactiveCompanies", 0);
 
         int totalUsers = 0;
         int totalEmployees = 0;

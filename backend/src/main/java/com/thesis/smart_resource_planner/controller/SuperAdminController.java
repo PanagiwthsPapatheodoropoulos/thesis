@@ -64,18 +64,7 @@ public class SuperAdminController {
         return ResponseEntity.noContent().build();
     }
 
-    /**
-     * Toggles the active/inactive state of a business profile, locking out users if
-     * inactive.
-     *
-     * @param companyId The organization to toggle.
-     * @return Updated organization status details.
-     */
-    @PatchMapping("/companies/{companyId}/toggle-active")
-    public ResponseEntity<CompanyDTO> toggleCompanyActive(@PathVariable UUID companyId) {
-        CompanyDTO company = superAdminService.toggleCompanyActive(companyId);
-        return ResponseEntity.ok(company);
-    }
+
 
     // USER OPERATIONS
 
