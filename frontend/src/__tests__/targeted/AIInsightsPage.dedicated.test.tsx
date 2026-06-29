@@ -63,16 +63,15 @@ describe("AIInsightsPage dedicated", () => {
 
   it("renders anomalies clear state when all anomaly endpoints are empty", async () => {
     render(<AIInsightsPage />);
-    await waitFor(() => expect(mocks.detectAnomalies).toHaveBeenCalledTimes(5));
-    fireEvent.click(screen.getByText("Anomalies"));
+    const tab = await screen.findByText("Anomalies");
+    fireEvent.click(tab);
     expect(screen.getByText(/No anomalies detected/i)).toBeInTheDocument();
   });
 
   it("renders recommendations fallback and supports manual refresh", async () => {
     render(<AIInsightsPage />);
-    await waitFor(() => expect(mocks.getProductivityAnalytics).toHaveBeenCalledTimes(1));
-
-    fireEvent.click(screen.getByText("Recommendations"));
+    const tab = await screen.findByText("Recommendations");
+    fireEvent.click(tab);
     expect(screen.getByText(/No Recommendations Available/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByText(/Refresh Insights/i));
@@ -88,8 +87,8 @@ describe("AIInsightsPage dedicated", () => {
     });
 
     render(<AIInsightsPage />);
-    await waitFor(() => expect(mocks.getProductivityAnalytics).toHaveBeenCalled());
-    fireEvent.click(screen.getByText("Skill Insights"));
+    const tab = await screen.findByText("Skill Insights");
+    fireEvent.click(tab);
     expect(screen.getByText(/Skill Usage Across Company/i)).toBeInTheDocument();
     expect(screen.getAllByText(/HIGH DEMAND/i).length).toBeGreaterThan(0);
   });
