@@ -24,7 +24,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
@@ -234,8 +233,7 @@ class TaskFeedbackHelperDedicatedTest {
                 anyString(),
                 any(HttpMethod.class),
                 any(HttpEntity.class),
-                any(org.springframework.core.ParameterizedTypeReference.class)
-        )).thenReturn(response);
+                any(org.springframework.core.ParameterizedTypeReference.class))).thenReturn(response);
 
         when(taskRepository.findById(task.getId())).thenReturn(java.util.Optional.of(task));
         when(taskRepository.save(any(Task.class))).thenReturn(task);
