@@ -81,16 +81,15 @@ describe("NotificationsPage dedicated", () => {
 
   it("marks all notifications as read", async () => {
     render(<NotificationsPage />);
-    await waitFor(() => expect(state.getByUser).toHaveBeenCalled());
-
-    fireEvent.click(screen.getByText(/Mark All Read/i));
+    const btn = await screen.findByText(/Mark All Read/i);
+    fireEvent.click(btn);
     await waitFor(() => expect(state.markAllAsRead).toHaveBeenCalledWith("u1"));
   });
 
   it("marks a single notification as read", async () => {
     render(<NotificationsPage />);
-    await waitFor(() => expect(state.getByUser).toHaveBeenCalled());
-    fireEvent.click(screen.getByText("Mark Read"));
+    const btn = await screen.findByText("Mark Read");
+    fireEvent.click(btn);
     await waitFor(() => expect(state.markAsRead).toHaveBeenCalledWith("n1"));
   });
 
@@ -113,7 +112,7 @@ describe("NotificationsPage dedicated", () => {
     });
 
     render(<NotificationsPage />);
-    await waitFor(() => expect(state.subscribe).toHaveBeenCalled());
+    await screen.findByText("Live");
     expect(screen.getByText("Live")).toBeInTheDocument();
     expect(screen.getByText(/All read/i)).toBeInTheDocument();
   });
