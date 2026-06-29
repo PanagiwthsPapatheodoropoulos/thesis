@@ -11,6 +11,10 @@ import com.thesis.smart_resource_planner.repository.TaskRequiredSkillRepository;
 import com.thesis.smart_resource_planner.service.helpers.TaskFeedbackHelper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -223,12 +227,23 @@ class TaskFeedbackHelperDedicatedTest {
         task.setScopeChangeCount(2);
         task.setActualHours(BigDecimal.valueOf(5.0));
 
+        when(taskRequiredSkillRepository.findByTaskId(task.getId())).thenReturn(Collections.emptyList());
+
+        ResponseEntity<Map<String, Object>> response = ResponseEntity.ok(Map.of("should_retrain", false));
+        when(restTemplate.exchange(
+                anyString(),
+                any(HttpMethod.class),
+                any(HttpEntity.class),
+                any(org.springframework.core.ParameterizedTypeReference.class)
+        )).thenReturn(response);
+
+        when(taskRepository.findById(task.getId())).thenReturn(java.util.Optional.of(task));
         when(taskRepository.save(any(Task.class))).thenReturn(task);
 
         helper.submitAIFeedback(task);
 
-        // Should save with low quality score without throwing
-        verify(taskRepository).save(task);
+        // Verify save is eventually called on the async thread
+        verify(taskRepository, timeout(2000)).save(task);
     }
 
     @Test
