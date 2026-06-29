@@ -1,0 +1,451 @@
+/**
+ * @file DepartmentsPage.jsx
+ * @description Page component for managing company departments and viewing associated employees.
+ */
+//src/pages/DepartmentsPage.jsx
+import React, { useState, useEffect } from 'react';
+import { Building2, Users, ChevronDown, ChevronUp, Plus, X, Trash2, User, GitCommit } from 'lucide-react';
+import { departmentsAPI } from '../utils/api';
+import { PageHeader, SearchBar, LoadingSpinner, EmptyState } from '../components/ui';
+import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
+import { useToast } from '../components/Toast';
+import { useConfirm } from '../components/ConfirmDialog';
+import { useWebSocket, EVENT_TYPES } from '../contexts/WebSocketProvider';
+
+/**
+ * DepartmentsPage Component
+ * 
+ * Lists departments, allowing authorized roles to create or delete them.
+ * Shows employees belonging to a selected department.
+ * 
+ * @returns {React.ReactElement} The departments UI.
+ */
+const DepartmentsPage = () => {
+  const { user } = useAuth();
+  const { darkMode } = useTheme();
+  const { showToast } = useToast();
+  const confirm = useConfirm();
+  const { subscribe, ready } = useWebSocket();
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [expandedDept, setExpandedDept] = useState<string | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
+  const [formData, setFormData] = useState({ name: '', description: '' });
+
+  useEffect(() => {
+    fetchDepartments();
+  }, []);
+
+  // Listen for profile updates via the existing window event (local changes)
+  useEffect(() => {
+    const handleProfileUpdate = () => {
+      fetchDepartments();
+    };
+    window.addEventListener('profileUpdated', handleProfileUpdate);
+    return () => {
+      window.removeEventListener('profileUpdated', handleProfileUpdate);
+    };
+  }, []);
+
+  // Listen for real-time profile/department changes via WebSocket.
+  // PROFILE_UPDATED fires whenever ANY employee profile is saved (including department moves),
+  // so this keeps department employee counts accurate without any polling.
+  useEffect(() => {
+    if (!ready) return;
+    const unsub = subscribe(EVENT_TYPES.PROFILE_UPDATED, () => {
+      fetchDepartments();
+    });
+    return () => unsub();
+  }, [ready, subscribe]);
+
+  /**
+   * Fetches all departments from the API.
+   * 
+   * @async
+   * @function fetchDepartments
+   * @returns {Promise<void>}
+   */
+  const fetchDepartments = async () => {
+    try {
+      setLoading(true);
+      const data = await departmentsAPI.getAll();
+      setDepartments(data);
+    } catch (error: any) {
+      console.error('Error fetching departments:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Creates a new department using current form data.
+   * 
+   * @async
+   * @function handleCreateDepartment
+   * @param {React.FormEvent} e - The form submission event.
+   * @returns {Promise<void>}
+   */
+  const handleCreateDepartment = async (e) => {
+    e.preventDefault();
+    try {
+      await departmentsAPI.create(formData);
+      setShowCreateModal(false);
+      setFormData({ name: '', description: '' });
+      fetchDepartments();
+    } catch (error: any) {
+      showToast('Error creating department: ' + error.message, 'error');
+    }
+  };
+
+  /**
+   * Prompts the user and attempts to delete a designated department.
+   * 
+   * @async
+   * @function handleDeleteDepartment
+   * @param {string} name - The name of the department to delete.
+   * @returns {Promise<void>}
+   */
+  const handleDeleteDepartment = async (name) => {
+    const isConfirmed = await confirm({
+      title: 'Delete Department',
+      message: `Are you sure you want to delete department "${name}"? This action will fail if there are employees assigned to it.`,
+      confirmText: 'Delete',
+      variant: 'danger'
+    });
+    if (isConfirmed) {
+      try {
+        await departmentsAPI.delete(name);
+        fetchDepartments();
+      } catch (error: any) {
+        showToast('Error deleting department: ' + error.message, 'error');
+      }
+    }
+  };
+
+  /**
+   * Toggles development/git info access for the specified department.
+   */
+  const handleToggleDevInfo = async (name: string, currentVal: boolean) => {
+    try {
+      await departmentsAPI.toggleDevInfo(name, !currentVal);
+      showToast(`Updated Git access for ${name}`, 'success');
+      fetchDepartments();
+    } catch (error: any) {
+      showToast('Error updating Git access: ' + error.message, 'error');
+    }
+  };
+
+  const filteredDepartments = departments.filter(dept =>
+    dept.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  if (loading) {
+    return <LoadingSpinner size="lg" darkMode={darkMode} />;
+  }
+
+  const canManage = user?.role === 'ADMIN' || user?.role === 'MANAGER';
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Departments"
+        description="Overview of all departments and their employees"
+        darkMode={darkMode}
+        action={
+          <div className="flex gap-3">
+            <button
+              onClick={fetchDepartments}
+              className={`px-4 py-2 rounded-lg transition ${
+                darkMode 
+                  ? 'bg-gray-700 text-gray-200 hover:bg-gray-600' 
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Refresh
+            </button>
+
+            {/*Only Admin/Manager can create departments */}
+            {canManage && (
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition"
+              >
+                <Plus className="w-5 h-5" />
+                New Department
+              </button>
+            )}
+          </div>
+        }
+      />
+
+      <SearchBar
+        value={searchTerm}
+        onChange={setSearchTerm}
+        placeholder="Search departments..."
+        darkMode={darkMode}
+      />
+
+      {/* Department Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className={`rounded-lg shadow p-6 border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`}>
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center">
+              <Building2 className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <p className={`text-sm font-medium ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Total Departments</p>
+              <p className={`text-3xl font-bold ${darkMode ? 'text-gray-100' : 'text-gray-900'}`}>{departments.length}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className={`rounded-lg shadow p-6 border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`}>
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl flex items-center justify-center">
+              <Users className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <p className={`text-sm font-medium ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Total Employees</p>
+              <p className={`text-3xl font-bold ${darkMode ? 'text-gray-100' : 'text-gray-900'}`}>
+                {departments.reduce((sum, dept) => sum + dept.employeeCount, 0)}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className={`rounded-lg shadow p-6 border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`}>
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
+              <Users className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <p className={`text-sm font-medium ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Avg per Department</p>
+              <p className={`text-3xl font-bold ${darkMode ? 'text-gray-100' : 'text-gray-900'}`}>
+                {departments.length > 0 
+                  ? Math.round(departments.reduce((sum, dept) => sum + dept.employeeCount, 0) / departments.length)
+                  : 0}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Departments List */}
+      <div className="space-y-4">
+        {filteredDepartments.map((dept) => (
+          <div key={dept.name} className={`rounded-lg shadow card-hover border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`}>
+            <div className="px-6 py-4 flex items-center justify-between">
+              <button
+                onClick={() => setExpandedDept(expandedDept === dept.name ? null : dept.name)}
+                className="flex items-center gap-4 flex-1 text-left"
+              >
+                <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
+                  <Building2 className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h3 className={`text-lg font-bold ${darkMode ? 'text-gray-100' : 'text-gray-900'}`}>{dept.name}</h3>
+                  <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    {dept.employeeCount} employee{dept.employeeCount !== 1 ? 's' : ''}
+                  </p>
+                  {dept.description && (
+                    <p className={`text-sm mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{dept.description}</p>
+                  )}
+                </div>
+                {expandedDept === dept.name ? (
+                  <ChevronUp className="w-5 h-5 text-gray-400" />
+                ) : (
+                  <ChevronDown className="w-5 h-5 text-gray-400" />
+                )}
+              </button>
+
+              <div className="flex items-center gap-3 px-3 flex-shrink-0">
+                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border ${
+                  dept.devInfoEnabled 
+                    ? darkMode 
+                      ? 'bg-emerald-950/40 text-emerald-300 border-emerald-800/60' 
+                      : 'bg-emerald-50/60 text-emerald-700 border-emerald-300'
+                    : darkMode 
+                      ? 'bg-gray-900/40 text-gray-400 border-gray-700' 
+                      : 'bg-gray-50 text-gray-600 border-gray-300'
+                }`}>
+                  <GitCommit className="w-3.5 h-3.5" />
+                  {dept.devInfoEnabled ? 'Git Access' : 'No Git Access'}
+                </span>
+                {canManage && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleToggleDevInfo(dept.name, dept.devInfoEnabled);
+                    }}
+                    className={`px-2.5 py-1 rounded-md text-xs font-bold border transition duration-200 shadow-sm cursor-pointer ${
+                      dept.devInfoEnabled
+                        ? darkMode
+                          ? 'bg-red-950/40 text-red-300 border-red-900/40 hover:bg-red-900/30'
+                          : 'bg-red-50/60 text-red-700 border-red-300 hover:bg-red-100 hover:border-red-400'
+                        : darkMode
+                          ? 'bg-indigo-950/40 text-indigo-300 border-indigo-900/40 hover:bg-indigo-900/30'
+                          : 'bg-indigo-50/60 text-indigo-700 border-indigo-300 hover:bg-indigo-100 hover:border-indigo-400'
+                    }`}
+                    title={dept.devInfoEnabled ? "Revoke Dev/Git Access" : "Grant Dev/Git Access"}
+                  >
+                    {dept.devInfoEnabled ? "Revoke" : "Grant"}
+                  </button>
+                )}
+              </div>
+
+              {canManage && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleDeleteDepartment(dept.name); }}
+                  className={`ml-2 p-2 rounded-lg transition ${
+                    darkMode 
+                      ? 'text-red-400 hover:bg-red-900/20' 
+                      : 'text-red-600 hover:bg-red-50'
+                  }`}
+                >
+                  <Trash2 className="w-5 h-5" />
+                </button>
+              )}
+            </div>
+
+            {expandedDept === dept.name && (
+              <div className={`px-6 pb-4 border-t slide-up ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                <div className="pt-4 space-y-2">
+                  {dept.employees && dept.employees.length > 0 ? (
+                    dept.employees.map((employee) => (
+                      <div
+                        key={employee.id}
+                        className={`flex items-center gap-3 p-3 rounded-lg transition ${
+                          darkMode 
+                            ? 'bg-gray-700 hover:bg-gray-600' 
+                            : 'bg-gray-50 hover:bg-gray-100'
+                        }`}
+                      >
+                        {employee.profileImageUrl ? (
+                          <img 
+                            key={employee.profileImageUrl} // Force re-render
+                            src={employee.profileImageUrl} 
+                            alt={`${employee.firstName} ${employee.lastName}`}
+                            className="w-10 h-10 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white">
+                            <User className="w-5 h-5" />
+                          </div>
+                        )}
+
+                        <div className="flex-1">
+                          <p className={`font-medium ${darkMode ? 'text-gray-100' : 'text-gray-900'}`}>
+                            {employee.firstName} {employee.lastName}
+                          </p>
+                          <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>{employee.position || 'No position'}</p>
+                        </div>
+                        {employee.skills && employee.skills.length > 0 && (
+                          <div className="flex gap-1">
+                            {employee.skills.slice(0, 3).map((skill) => (
+                              <span
+                                key={skill.id}
+                                className={`px-2 py-1 text-xs rounded-full ${
+                                  darkMode ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-50 text-blue-700'
+                                }`}
+                              >
+                                {skill.skillName}
+                              </span>
+                            ))}
+                            {employee.skills.length > 3 && (
+                              <span className={`px-2 py-1 text-xs rounded-full ${
+                                darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'
+                              }`}>
+                                +{employee.skills.length - 3}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <p className={`text-center py-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>No employees in this department</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {filteredDepartments.length === 0 && (
+        <EmptyState
+          title="No departments found"
+          description="Try adjusting your search criteria."
+          darkMode={darkMode}
+        />
+      )}
+
+      {/* Create Modal */}
+      {canManage && showCreateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 fade-in">
+          <div className={`rounded-lg p-6 w-full max-w-md slide-up scale-in ${
+            darkMode ? 'bg-gray-900 text-gray-100' : 'bg-white text-gray-900'
+          }`}>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className={`text-xl font-bold ${darkMode ? 'text-gray-100' : 'text-gray-900'}`}>
+                Create New Department
+              </h2>
+              <button onClick={() => setShowCreateModal(false)}>
+                <X className={`w-6 h-6 ${darkMode ? 'text-gray-400 hover:text-gray-200' : 'text-gray-600 hover:text-gray-800'}`} />
+              </button>
+            </div>
+            <form onSubmit={handleCreateDepartment} className="space-y-4">
+              <div>
+                <label className={`block text-sm font-medium mb-1 ${
+                  darkMode ? 'text-gray-300' : 'text-gray-700'
+                }`}>
+                  Department Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formData.name}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, name: e.target.value })}
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${
+                    darkMode 
+                      ? 'bg-gray-800 border-gray-700 text-gray-100 placeholder-gray-500' 
+                      : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                  }`}
+                  placeholder="e.g., Engineering, Marketing"
+                />
+              </div>
+              <div>
+                <label className={`block text-sm font-medium mb-1 ${
+                  darkMode ? 'text-gray-300' : 'text-gray-700'
+                }`}>
+                  Description (Optional)
+                </label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setFormData({ ...formData, description: e.target.value })}
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${
+                    darkMode 
+                      ? 'bg-gray-800 border-gray-700 text-gray-100 placeholder-gray-500' 
+                      : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                  }`}
+                  rows={3}
+                  placeholder="Brief description of the department"
+                />
+              </div>
+              <button
+                type="submit"
+                className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-2 rounded-lg hover:shadow-lg transition"
+              >
+                Create Department
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default DepartmentsPage;
